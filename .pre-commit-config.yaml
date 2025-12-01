@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: tofu-fmt
+        name: tofu fmt
+        entry: tofu fmt -recursive
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

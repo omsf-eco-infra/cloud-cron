@@ -1,0 +1,12 @@
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+crash.log
+*.tfvars
+*.tfvars.json
+.pytest_cache/
+.pixi/
+.DS_Store
+.idea/
+.vscode/
