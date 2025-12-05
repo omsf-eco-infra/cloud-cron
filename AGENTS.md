@@ -8,6 +8,12 @@
 - Use `pixi` for reproducible envs; prefer `pixi run` over ad-hoc installs.
 - Add small, focused docstrings and comments only where non-obvious intent needs clarity.
 
+## Writing Plans
+- Plans should include overviews of goals and success criteria.
+- Plans should include summaries of decisions made and motivations for specific choices.
+- The general format of a plan is as a series of "phases," each with a clear milestone at the end, and a to-do list of steps to be taken to get there.
+- Each phase should be small enough to be represented as a single PR.
+
 ## Python (boto3, pytest, moto)
 - Default to Pythonic patterns: type hints, f-strings, dataclasses where helpful, and small pure functions.
 - Avoid hitting real AWS: mock AWS calls with `moto` and inject sessions/clients for testability.
@@ -15,9 +21,9 @@
 - Tests: aim for fast, isolated `pytest` cases; use fixtures for setup/teardown; measure coverage with `pytest-cov` when meaningful.
 
 ## Infrastructure (opentofu)
-- Keep infrastructure code formatted and validated: `opentofu fmt` and `opentofu validate` before sharing.
+- Keep infrastructure code formatted and validated: `tofu fmt` and `tofu validate` before sharing.
 - Separate plan/apply steps; never apply without review. Capture variables in `.tfvars` or env, not inline secrets.
-- AWS resources should be tagged with `managedBy: cloudcron`
+- AWS resources should be tagged with `managed_by: cloudcron`
 
 
 ## Observability and Safety
