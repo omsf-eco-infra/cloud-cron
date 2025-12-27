@@ -75,3 +75,15 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "schedule_expression" {
+  description = "EventBridge schedule expression for the example Lambda."
+  type        = string
+  default     = "rate(1 hour)"
+}
+
+variable "lambda_name" {
+  description = "Name for the scheduled Lambda function."
+  type        = string
+  default     = "cloudcron-basic"
+}

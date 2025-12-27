@@ -27,10 +27,10 @@
 - [x] Example touchpoint: allow `examples/basic` to build/push a simple placeholder Lambda image from a local Dockerfile as an alternative to the republish module.
 
 ## Phase 2: Build scheduled Lambda module (`modules/scheduled-lambda`)
-- [ ] Define inputs: `lambda_image_uri`, `schedule_expression`, `sns_topics` (map envvar->ARN), optional `lambda_env`, `timeout`, `memory_size`, `tags`.
-- [ ] Create resources: IAM role/policy (CloudWatch Logs + `sns:Publish` to provided ARNs), Lambda from container image, EventBridge rule/target/permission.
-- [ ] Outputs: Lambda ARN, execution role ARN, log group name, schedule rule name.
-- [ ] Docs: README with usage matching IDEA example.
+- [x] Define inputs: `lambda_image_uri`, `schedule_expression`, `sns_topics` (map envvar->ARN), optional `lambda_env`, `timeout`, `memory_size`, `tags`.
+- [x] Create resources: IAM role/policy (CloudWatch Logs + `sns:Publish` to provided ARNs), Lambda from container image, EventBridge rule/target/permission.
+- [x] Outputs: Lambda ARN, execution role ARN, log group name, schedule rule name.
+- [x] Docs: README with usage matching IDEA example.
 - [ ] Verify: `terraform validate` in `modules/scheduled-lambda`; example `terraform plan` shows env var wiring and schedule target; run `make validate`/`tflint` if configured.
 - [ ] Example touchpoint: scaffold `examples/basic` with this module + stub SNS topic(s) and the container image outputs from Phase 1; `terraform validate/plan` should pass to prove schedule wiring.
 
