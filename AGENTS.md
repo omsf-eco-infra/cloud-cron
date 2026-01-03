@@ -19,6 +19,7 @@
 - Avoid hitting real AWS: mock AWS calls with `moto` and inject sessions/clients for testability.
 - Prefer dependency injection for boto3 clients; never hardcode regions or credentials.
 - Tests: aim for fast, isolated `pytest` cases; use fixtures for setup/teardown; measure coverage with `pytest-cov` when meaningful.
+- Run tests with `pytest` to ensure that they pass before sharing code.
 
 ## Infrastructure (opentofu)
 - Keep infrastructure code formatted and validated: `tofu fmt` and `tofu validate` before sharing.

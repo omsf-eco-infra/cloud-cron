@@ -1,0 +1,166 @@
+import json
+import logging
+import os
+from abc import ABC, abstractmethod
+from typing import Any, Iterable, Mapping, Optional
+
+from jinja2 import Environment, StrictUndefined
+
+
+class TemplateProvider(ABC):
+    """
+    Base class for retrieving notification templates.
+    """
+
+    @abstractmethod
+    def get_template(self) -> str:
+        """
+        Return a Jinja2 template string.
+
+        Returns
+        -------
+        str
+            Template contents as a string.
+        """
+        raise NotImplementedError
+
+
+class EnvVarTemplateProvider(TemplateProvider):
+    """
+    Load a notification template from an environment variable.
+
+    Parameters
+    ----------
+    env_var : str, optional
+        Environment variable containing the template string.
+    """
+
+    def __init__(self, env_var: str = "TEMPLATE") -> None:
+        self.env_var = env_var
+
+    def get_template(self) -> str:
+        """
+        Return a Jinja2 template string from the configured environment variable.
+
+        Returns
+        -------
+        str
+            Template contents as a string.
+
+        Raises
+        ------
+        ValueError
+            If the environment variable is missing or empty.
+        """
+        template = os.environ.get(self.env_var)
+        if not template:
+            raise ValueError(f"{self.env_var} must be set to a non-empty template")
+        return template
+
+
+class NotificationHandler(ABC):
+    """
+    Base class for SQS-driven notifications using Jinja2 templates.
+
+    Parameters
+    ----------
+    template_provider : TemplateProvider
+        Provider that returns the template string for rendering.
+    expected_queue_arn : str, optional
+        Queue ARN to validate incoming SQS records.
+    logger : logging.Logger, optional
+        Logger used for structured logging.
+    jinja_env : jinja2.Environment, optional
+        Jinja2 environment used for rendering templates.
+    """
+
+    def __init__(
+        self,
+        template_provider: TemplateProvider,
+        *,
+        expected_queue_arn: Optional[str] = None,
+        logger: Optional[logging.Logger] = None,
+        jinja_env: Optional[Environment] = None,
+    ) -> None:
+        self.template_provider = template_provider
+        self.expected_queue_arn = expected_queue_arn
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        self.jinja_env = jinja_env or Environment(undefined=StrictUndefined)
+
+    def lambda_handler(self, event: Mapping[str, Any], context: Any) -> None:
+        """
+        Entry point for SQS-triggered notification handlers.
+
+        Parameters
+        ----------
+        event : Mapping[str, Any]
+            Lambda event payload containing SQS records.
+        context : Any
+            Lambda context object.
+        """
+        self.logger.info(
+            "notification_invocation",
+            extra={"record_count": len(event.get("Records", []))},
+        )
+        template = self.template_provider.get_template()
+        for record, result in self._iter_results(event):
+            rendered = self._render_template(template, result)
+            self.notify(result=result, rendered=rendered, record=record)
+
+    @abstractmethod
+    def notify(
+        self, *, result: Mapping[str, Any], rendered: str, record: Mapping[str, Any]
+    ) -> None:
+        """
+        Send the rendered notification payload to the target channel.
+
+        Parameters
+        ----------
+        result : Mapping[str, Any]
+            Parsed result payload from the SNS-to-SQS pipeline.
+        rendered : str
+            Rendered template output.
+        record : Mapping[str, Any]
+            Original SQS record for additional metadata.
+        """
+        raise NotImplementedError
+
+    def _iter_results(
+        self, event: Mapping[str, Any]
+    ) -> Iterable[tuple[Mapping[str, Any], Mapping[str, Any]]]:
+        records = event.get("Records", [])
+        for record in records:
+            event_source = record.get("eventSource")
+            if event_source and event_source != "aws:sqs":
+                raise ValueError(f"Unsupported event source: {event_source}")
+            if self.expected_queue_arn:
+                event_arn = record.get("eventSourceARN")
+                if event_arn != self.expected_queue_arn:
+                    raise ValueError(
+                        f"SQS queue mismatch (expected {self.expected_queue_arn}, got {event_arn})"
+                    )
+            yield record, self._parse_result(record)
+
+    def _parse_result(self, record: Mapping[str, Any]) -> Mapping[str, Any]:
+        body = record.get("body")
+        if not body:
+            raise ValueError("SQS record body is missing")
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise ValueError("SQS record body must be valid JSON") from exc
+        if isinstance(payload, dict) and "Message" in payload:
+            message = payload.get("Message")
+            if not isinstance(message, str):
+                raise ValueError("SNS message must be a JSON string")
+            try:
+                payload = json.loads(message)
+            except json.JSONDecodeError as exc:
+                raise ValueError("SNS message must be valid JSON") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("Result payload must be a JSON object")
+        return payload
+
+    def _render_template(self, template: str, result: Mapping[str, Any]) -> str:
+        jinja_template = self.jinja_env.from_string(template)
+        return jinja_template.render(**result)
