@@ -1,11 +1,13 @@
+from cloud_cron.lambda_task import CronLambdaTask
+
+
+class ExampleTask(CronLambdaTask):
+    def _perform_task(self, event, context):
+        return {"example": {"message": "Hello World"}}
+
+
+task = ExampleTask()
+
+
 def handler(event, context):
-    """Basic Lambda handler that returns a Hello World message."""
-    result = {
-        'content': 'Hello World',
-    }
-    print(result['content'])
-    # TODO: push result to SQS queue
-    return {
-        "statusCode": 200,
-        "body": result['content'],
-    }
+    task.lambda_handler(event, context)

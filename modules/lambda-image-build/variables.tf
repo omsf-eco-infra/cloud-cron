@@ -3,6 +3,12 @@ variable "source_dir" {
   type        = string
 }
 
+variable "dockerfile_path" {
+  description = "Optional path to a Dockerfile to use when building the image."
+  type        = string
+  default     = null
+}
+
 variable "repository_name" {
   description = "Optional name for the ECR repository. Defaults to <basename>-source."
   type        = string
@@ -19,6 +25,12 @@ variable "build_args" {
   description = "Build arguments to pass to docker buildx."
   type        = map(string)
   default     = {}
+}
+
+variable "build_context_paths" {
+  description = "Optional list of paths to hash for detecting build context changes."
+  type        = list(string)
+  default     = null
 }
 
 variable "platform" {

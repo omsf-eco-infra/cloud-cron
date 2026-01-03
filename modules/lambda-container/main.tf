@@ -85,3 +85,12 @@ resource "null_resource" "republish_image" {
     aws_ecr_repository_policy.self_access,
   ]
 }
+
+data "aws_ecr_image" "destination" {
+  repository_name = aws_ecr_repository.destination.name
+  image_tag       = var.source_lambda_tag
+
+  depends_on = [
+    null_resource.republish_image,
+  ]
+}

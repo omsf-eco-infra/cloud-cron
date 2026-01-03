@@ -13,7 +13,12 @@ locals {
 module "lambda_image_build" {
   source = "../../modules/lambda-image-build"
 
-  source_dir      = "${path.module}/lambda"
+  source_dir      = "${path.module}/../.."
+  dockerfile_path = "${path.module}/lambda/Dockerfile"
+  build_context_paths = [
+    "${path.module}/lambda",
+    "${path.module}/../../src/cloud_cron",
+  ]
   repository_name = var.repository_name
   image_tag       = var.image_tag
   platform        = var.platform
@@ -35,11 +40,17 @@ module "lambda_container_republish" {
 }
 
 locals {
-  active_lambda_image_uri = var.enable_republish ? module.lambda_container_republish[0].lambda_image_uri : module.lambda_image_build.image_uri
+  active_lambda_image_uri = var.enable_republish ? module.lambda_container_republish[0].lambda_image_uri_with_digest : module.lambda_image_build.image_uri_with_digest
 }
 
 resource "aws_sns_topic" "example_topic" {
   name = "example-topic"
+}
+
+locals {
+  sns_topic_map = {
+    example = aws_sns_topic.example_topic.arn
+  }
 }
 
 module "scheduled_lambda" {
@@ -50,6 +61,9 @@ module "scheduled_lambda" {
   lambda_name         = var.lambda_name
   sns_topics = {
     EXAMPLE_TOPIC_ARN = aws_sns_topic.example_topic.arn
+  }
+  lambda_env = {
+    SNS_TOPICS = jsonencode(local.sns_topic_map)
   }
 
   tags = local.common_tags

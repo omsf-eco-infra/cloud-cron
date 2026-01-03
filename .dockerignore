@@ -1,0 +1,9 @@
+.git
+.pixi
+.pytest_cache
+**/__pycache__
+**/*.pyc
+**/.terraform
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/plan.tfplan
