@@ -47,12 +47,12 @@ resource "aws_ecr_repository_policy" "self_access" {
   repository = aws_ecr_repository.destination.name
 
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "AllowAccountPushPull"
-        Effect   = "Allow"
-        Action   = ["ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage", "ecr:BatchCheckLayerAvailability", "ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload"]
+        Sid    = "AllowAccountPushPull"
+        Effect = "Allow"
+        Action = ["ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage", "ecr:BatchCheckLayerAvailability", "ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload"]
         Principal = {
           AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
         }
@@ -63,10 +63,10 @@ resource "aws_ecr_repository_policy" "self_access" {
 
 resource "null_resource" "republish_image" {
   triggers = {
-    source_digest           = data.aws_ecr_image.source.image_digest
-    destination_repository  = aws_ecr_repository.destination.repository_url
-    destination_image_tag   = var.source_lambda_tag
-    enable_kms_encryption   = tostring(var.enable_kms_encryption)
+    source_digest               = data.aws_ecr_image.source.image_digest
+    destination_repository      = aws_ecr_repository.destination.repository_url
+    destination_image_tag       = var.source_lambda_tag
+    enable_kms_encryption       = tostring(var.enable_kms_encryption)
     destination_repository_name = aws_ecr_repository.destination.name
   }
 

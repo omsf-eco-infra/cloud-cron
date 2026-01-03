@@ -50,11 +50,11 @@ Decisions and motivations:
 
 To-do:
 
-- [ ] Refine the base task class to be typed, injectable (boto3 session/client), and structured-logging friendly.
-- [ ] Add a small SNS dispatch helper that validates topic keys and emits clear errors on mismatches.
-- [ ] Add `src/cloud_cron/notifications/` for shared handler logic (SES/Twilio/etc.) that can be imported by notification runtimes.
-- [ ] Update `src/cloud_cron/HOWTO-custom-lambda.md` to show the current recommended pattern and env var expectations.
-- [ ] Add pytest cases with moto/mocks to cover SNS publish and mismatch errors.
+- [x] Refine the base task class to be typed, injectable (boto3 session/client), and structured-logging friendly.
+- [x] Add a small SNS dispatch helper that validates topic keys and emits clear errors on mismatches.
+- [x] Add `src/cloud_cron/notifications/` for shared handler logic (SES/Twilio/etc.) that can be imported by notification runtimes.
+- [x] Update `src/cloud_cron/HOWTO-custom-lambda.md` to show the current recommended pattern and env var expectations.
+- [x] Add pytest cases with moto/mocks to cover SNS publish and mismatch errors.
 - [ ] Document a minimal example task module that can be used in `examples/basic` or in a client repo.
 
 ## Phase 4: Build notification modules
