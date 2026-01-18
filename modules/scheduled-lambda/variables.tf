@@ -11,6 +11,10 @@ variable "schedule_expression" {
 variable "sns_topic_arns" {
   description = "Map of logical topic keys to SNS topic ARNs."
   type        = map(string)
+  validation {
+    condition     = length(var.sns_topic_arns) > 0
+    error_message = "At least one SNS topic ARN must be provided."
+  }
 }
 
 variable "lambda_env" {
