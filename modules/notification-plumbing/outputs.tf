@@ -23,6 +23,11 @@ output "subscription_arn" {
   value       = aws_sns_topic_subscription.queue.arn
 }
 
+output "event_source_mapping_uuid" {
+  description = "UUID of the Lambda event source mapping."
+  value       = aws_lambda_event_source_mapping.sqs.uuid
+}
+
 output "lambda_sqs_policy_json" {
   description = "IAM policy JSON granting Lambda access to the SQS queue."
   value       = data.aws_iam_policy_document.lambda_sqs_access.json

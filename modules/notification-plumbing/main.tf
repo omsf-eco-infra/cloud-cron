@@ -59,6 +59,13 @@ resource "aws_sns_topic_subscription" "queue" {
   raw_message_delivery = true
 }
 
+resource "aws_lambda_event_source_mapping" "sqs" {
+  event_source_arn = aws_sqs_queue.queue.arn
+  function_name    = var.lambda_function_arn
+  enabled          = var.enabled
+  batch_size       = var.batch_size
+}
+
 data "aws_iam_policy_document" "lambda_sqs_access" {
   statement {
     effect = "Allow"

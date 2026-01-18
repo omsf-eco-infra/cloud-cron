@@ -7,6 +7,11 @@ variable "sns_topic_arn" {
   }
 }
 
+variable "lambda_function_arn" {
+  description = "ARN of the Lambda function that processes SQS messages."
+  type        = string
+}
+
 variable "fifo_queue_name" {
   description = "Name of the FIFO SQS queue (must end with .fifo)."
   type        = string
@@ -44,6 +49,18 @@ variable "max_receive_count" {
   description = "Number of receives before sending to the DLQ."
   type        = number
   default     = 5
+}
+
+variable "batch_size" {
+  description = "Maximum number of records per Lambda invocation."
+  type        = number
+  default     = 10
+}
+
+variable "enabled" {
+  description = "Enable the SQS event source mapping."
+  type        = bool
+  default     = true
 }
 
 variable "tags" {

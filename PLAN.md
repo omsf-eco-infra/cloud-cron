@@ -60,7 +60,7 @@ To-do:
 ## Phase 4: Build notification modules
 
 ### Phase 4.1: Notification containers and queueing infra
-- [ ] Build one container per notification channel (email, SMS, print) using shared helpers from `src/cloud_cron/notifications/`; allow build or republish via container modules.
+- [ ] Build one container per notification channel (email, SMS, print) using shared helpers from `src/cloud_cron/notifications/`; allow build or republish via `lambda-image-build` or `lambda-container`.
 - [ ] Add a minimal "print" notifier handler that renders the template and logs/prints it for easy testing.
 - [ ] Terraform: per-channel container build/publish; SQS FIFO queue for deduplication between SNS topic and Lambdas; SNS subscription to FIFO SQS with content-based dedup; SQS trigger to Lambda; IAM for SQS poll, logs, SES send, Secrets/SSM read, Twilio access.
 - [ ] Inputs per module: `sns_topic_arn`, `fifo_queue_name`/settings, handler selector/env vars; shared tags/log retention.
