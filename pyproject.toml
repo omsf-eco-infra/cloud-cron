@@ -12,8 +12,9 @@ dependencies = [
   "boto3",
   "jinja2",
 ]
-optional-dependencies = {dev = ["pytest", "pytest-cov", "moto", "pre-commit"]}
 
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "moto", "pre-commit"]
 [tool.setuptools]
 package-dir = {"" = "src"}
 
