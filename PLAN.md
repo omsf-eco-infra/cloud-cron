@@ -33,6 +33,30 @@
 - [x] Docs: README with usage matching IDEA example.
 - [x] Example touchpoint: scaffold `examples/basic` with this module + stub SNS topic(s) and the container image outputs from Phase 1; `terraform validate/plan` should pass to prove schedule wiring.
 
+## Phase 2.5: Consolidate result routing into a single SNS topic
+
+Overview: replace per-result-type topics with one shared SNS topic and use message attributes + subscription filter policies to route results to notification channels.
+
+Success criteria:
+
+- Scheduled lambdas publish to one topic and set a `result_type` message attribute.
+- Notification modules accept `result_types` (list) and apply SNS filter policies to their subscriptions.
+- Examples and docs reflect the single-topic pattern.
+
+Decisions and motivations:
+
+- Use SNS filter policies to reduce infrastructure and make multi-type subscriptions easy.
+- Keep result types as message attributes to avoid changing payload shapes or handler code.
+
+To-do:
+
+- [ ] Update `modules/scheduled-lambda` to accept `sns_topic_arn` (single) and adjust IAM to `sns:Publish` on that ARN.
+- [ ] Update notification plumbing module to accept `result_types` and apply SNS filter policy on the subscription.
+- [ ] Update per-channel modules to pass through `result_types` and document the attribute name.
+- [ ] Update `src/cloud_cron/` helpers to publish with a `result_type` attribute and validate allowed types.
+- [ ] Update `examples/basic` to use one topic and demonstrate multiple `result_types` subscriptions.
+- [ ] Update module READMEs and `IDEA.md` usage examples to match the new wiring.
+
 ## Phase 3: Python runtime library for custom lambdas (`src/cloud_cron/`)
 
 Overview: turn the existing Python helpers into a reusable, testable library that makes it easy for users to author scheduled lambdas while keeping SNS wiring and logging consistent. This package will also host shared notification handler code (under `src/cloud_cron/notifications/`), while deployment/container wiring remains in Terraform modules.
