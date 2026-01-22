@@ -44,7 +44,7 @@ module "print_lambda_image_build" {
 
 module "lambda_container_republish" {
   count  = var.enable_republish ? 1 : 0
-  source = "../../modules/lambda-container"
+  source = "../../modules/lambda-image-republish"
 
   source_lambda_repo          = var.source_lambda_repo
   source_lambda_tag           = var.source_lambda_tag
