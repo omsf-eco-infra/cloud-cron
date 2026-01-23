@@ -75,6 +75,11 @@ resource "aws_iam_policy" "lambda_ses_policy" {
           "ses:SendEmail",
         ]
         Resource = "*"
+        Condition = {
+          StringEquals = {
+            "ses:FromAddress" = var.sender
+          }
+        }
       },
     ]
   })

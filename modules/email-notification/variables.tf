@@ -66,6 +66,11 @@ variable "sender" {
 variable "recipients" {
   description = "Recipient email addresses for SES."
   type        = list(string)
+
+  validation {
+    condition     = length(var.recipients) > 0
+    error_message = "At least one recipient email address must be provided."
+  }
 }
 
 variable "reply_to" {

@@ -62,6 +62,8 @@ class EmailNotificationHandler(NotificationHandler):
         self.text_template_provider = text_template_provider
         self.html_template_provider = html_template_provider
         self.sender = sender
+        if not recipients:
+            raise ValueError("recipients must contain at least one email address")
         self.recipients = list(recipients)
         self.config_set = config_set
         self.reply_to = list(reply_to) if reply_to else None
@@ -119,10 +121,10 @@ class EmailNotificationHandler(NotificationHandler):
             Original SQS record for additional metadata.
         """
         message = {
-            "Subject": {"Data": rendered["subject"]},
+            "Subject": {"Data": rendered["subject"], "Charset": "UTF-8"},
             "Body": {
-                "Text": {"Data": rendered["text"]},
-                "Html": {"Data": rendered["html"]},
+                "Text": {"Data": rendered["text"], "Charset": "UTF-8"},
+                "Html": {"Data": rendered["html"], "Charset": "UTF-8"},
             },
         }
         payload = {

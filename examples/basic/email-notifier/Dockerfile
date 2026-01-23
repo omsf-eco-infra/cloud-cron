@@ -1,6 +1,6 @@
 FROM public.ecr.aws/lambda/python:3.13
 
-RUN pip install --no-cache-dir jinja2
+RUN pip install --no-cache-dir jinja2 boto3
 
 # Copy function code and runtime helpers
 COPY examples/basic/email-notifier/handler.py ${LAMBDA_TASK_ROOT}
