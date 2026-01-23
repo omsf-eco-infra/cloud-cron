@@ -16,6 +16,12 @@ variable "print_repository_name" {
   default     = "cloud-cron-print"
 }
 
+variable "email_repository_name" {
+  description = "Optional repository name for the email notifier image."
+  type        = string
+  default     = "cloud-cron-email"
+}
+
 variable "image_tag" {
   description = "Tag to use for the locally built image."
   type        = string
@@ -86,4 +92,20 @@ variable "lambda_name" {
   description = "Name for the scheduled Lambda function."
   type        = string
   default     = "cloudcron-basic"
+}
+
+variable "email_sender" {
+  description = "Sender email address for the SES notifier."
+  type        = string
+}
+
+variable "email_recipients" {
+  description = "Recipient email addresses for the SES notifier."
+  type        = list(string)
+}
+
+variable "email_reply_to" {
+  description = "Reply-to email addresses for the SES notifier."
+  type        = list(string)
+  default     = []
 }

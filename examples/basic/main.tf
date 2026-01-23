@@ -40,6 +40,21 @@ module "print_lambda_image_build" {
   tags            = local.common_tags
 }
 
+module "email_lambda_image_build" {
+  source = "../../modules/lambda-image-build"
+
+  source_dir      = "${path.module}/../.."
+  dockerfile_path = "${path.module}/email-notifier/Dockerfile"
+  build_context_paths = [
+    "${path.module}/email-notifier",
+    "${path.module}/../../src/cloud_cron",
+  ]
+  repository_name = var.email_repository_name
+  image_tag       = var.image_tag
+  platform        = var.platform
+  tags            = local.common_tags
+}
+
 module "lambda_container_republish" {
   count  = var.enable_republish ? 1 : 0
   source = "../../modules/lambda-image-republish"
@@ -56,6 +71,7 @@ module "lambda_container_republish" {
 locals {
   active_lambda_image_uri = var.enable_republish ? module.lambda_container_republish[0].lambda_image_uri_with_digest : module.lambda_image_build.image_uri_with_digest
   active_print_image_uri  = module.print_lambda_image_build.image_uri_with_digest
+  active_email_image_uri  = module.email_lambda_image_build.image_uri_with_digest
 }
 
 resource "aws_sns_topic" "results" {
@@ -83,6 +99,24 @@ module "print_notification" {
   fifo_queue_name  = "example-print.fifo"
   lambda_image_uri = local.active_print_image_uri
   template_file    = "${path.module}/templates/print.txt"
+
+  tags = local.common_tags
+}
+
+module "email_notification" {
+  source = "../../modules/email-notification"
+
+  sns_topic_arn    = aws_sns_topic.results.arn
+  fifo_queue_name  = "example-email.fifo"
+  lambda_image_uri = local.active_email_image_uri
+
+  sender     = var.email_sender
+  recipients = var.email_recipients
+  reply_to   = var.email_reply_to
+
+  subject_template_file = "${path.module}/templates/email-subject.txt"
+  text_template_file    = "${path.module}/templates/email-body.txt"
+  html_template_file    = "${path.module}/templates/email-body.html"
 
   tags = local.common_tags
 }
