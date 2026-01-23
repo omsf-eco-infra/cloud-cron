@@ -68,6 +68,8 @@ class NotificationHandler(ABC):
         Provider that returns the template string for rendering.
     expected_queue_arn : str, optional
         Queue ARN to validate incoming SQS records.
+    include_result_type : bool, optional
+        Whether to include the SNS message attribute ``result_type`` in the payload.
     logger : logging.Logger, optional
         Logger used for structured logging.
     jinja_env : jinja2.Environment, optional
@@ -79,11 +81,13 @@ class NotificationHandler(ABC):
         template_provider: TemplateProvider,
         *,
         expected_queue_arn: Optional[str] = None,
+        include_result_type: bool = True,
         logger: Optional[logging.Logger] = None,
         jinja_env: Optional[Environment] = None,
     ) -> None:
         self.template_provider = template_provider
         self.expected_queue_arn = expected_queue_arn
+        self.include_result_type = include_result_type
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         self.jinja_env = jinja_env or Environment(undefined=StrictUndefined)
 
@@ -159,8 +163,21 @@ class NotificationHandler(ABC):
                 raise ValueError("SNS message must be valid JSON") from exc
         if not isinstance(payload, dict):
             raise ValueError("Result payload must be a JSON object")
+        if self.include_result_type:
+            result_type = self._extract_result_type(record)
+            if result_type and "result_type" not in payload:
+                payload["result_type"] = result_type
         return payload
 
     def _render_template(self, template: str, result: Mapping[str, Any]) -> str:
         jinja_template = self.jinja_env.from_string(template)
         return jinja_template.render(**result)
+
+    @staticmethod
+    def _extract_result_type(record: Mapping[str, Any]) -> Optional[str]:
+        attributes = record.get("messageAttributes", {})
+        result_attr = attributes.get("result_type", {})
+        value = result_attr.get("stringValue") or result_attr.get("StringValue")
+        if isinstance(value, str) and value:
+            return value
+        return None
