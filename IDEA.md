@@ -6,21 +6,21 @@ This is intended to be a framework that can be used by client code to define the
 
 ## Components
 
-1. **Scheduled Lambda Functions**: The goal here is that the client can provide their own lambda function (as a container image) and, from that, we will run it on a schedule defined by the client. The lambda function needs to know 1 or more SNS topics to which it will publish messages when it runs; different "types" of messages can go to different SNS topics, which will then be subscribed to by different notification channels. This will include the lambda execution role and the scheduled events.
-2. **SNS Topics**: These will be manually created by the client code, but ARNs might be needed to give the lambda permissions to publish.
-3. **Notification Channels**: We will provide modules for different notification channels (e.g., email via SES, SMS via Twilio, etc.). Each notification module owns the SNS->SQS->Lambda wiring: it provisions the FIFO SQS queue/subscription used for deduplication and triggers its handler; the user should not create that queue manually. Each channel ships its own container image (build or republish) that renders a Jinja2 template and delivers via its notifier.
+1. **Scheduled Lambda Functions**: The goal here is that the client can provide their own lambda function (as a container image) and, from that, we will run it on a schedule defined by the client. The lambda function will publish to a single SNS topic and set a `result_type` (or similar) message attribute; notification channels will filter on one or more types. This will include the lambda execution role and the scheduled events.
+2. **SNS Topic**: A single topic is manually created by the client code; its ARN is needed to give the lambda permissions to publish. Filtering is done via subscription filter policies, not separate topics.
+3. **Notification Channels**: We will provide modules for different notification channels (e.g., email via SES, SMS via Twilio, etc.). Each notification module owns the SNS->SQS->Lambda wiring: it provisions the FIFO SQS queue/subscription used for deduplication and triggers its handler, with an SNS filter policy on the result type(s); the user should not create that queue manually. Each channel ships its own container image (build or republish) that renders a Jinja2 template and delivers via its notifier.
 4. **Lambda Image Utilities**: In addition to republishing an existing Lambda container, we will provide a module to build an image from a local directory containing a Dockerfile and publish it to ECR for use by the scheduled-lambda module.
 5. **Python Runtime Library**: Provide reusable Python code in `src/cloud_cron/` that makes authoring custom scheduled lambdas easy (task base class, SNS dispatch helpers, and ergonomic handler wiring). This includes a template provider abstraction so notification handlers can source templates from env vars, URLs, or S3.
 
 
 The goal is that the user will need to:
 
-1. Write a lambda function that publishes to the desired SNS topics (provided as envionment variables).
+1. Write a lambda function that publishes to the shared SNS topic and sets a `result_type` message attribute (provided as an environment variable or constant).
 2. Write a small terraform module that looks something like:
 
 ```hcl
-resource "aws_sns_topic" "example_topic" {
-  name = "example-topic"
+resource "aws_sns_topic" "results" {
+  name = "cloud-cron-results"
 }
 
 module "my_scheduled_lambda" {
@@ -28,14 +28,13 @@ module "my_scheduled_lambda" {
 
   lambda_image_uri = "123456789012.dkr.ecr.us-west-2.amazonaws.com/my-lambda:latest"
   schedule_expression = "rate(5 minutes)"
-  sns_topic_arns = {
-    example = aws_sns_topic.example_topic.arn
-  }
+  sns_topic_arn = aws_sns_topic.results.arn
 }
 
 module "my_email_notification" {
   source = "./modules/email-notification"
-  sns_topic_arn = aws_sns_topic.example_topic.arn
+  sns_topic_arn = aws_sns_topic.results.arn
+  result_types = ["example"]
   template_file = "path/to/email/template.html"
   email_sender = "me@example.com"
   email_recipients = [
@@ -46,6 +45,10 @@ module "my_email_notification" {
 ```
 
 (There may be additional parameters needed, but this is the general idea.)
+
+Notes on the single-topic approach:
+- It simplifies wiring and allows channels to subscribe to multiple result types via filter policies.
+- It reduces per-type IAM/topic configuration, but also means topic-level settings (KMS, delivery policy, metrics) are shared.
 
 ## Additional convenience
 

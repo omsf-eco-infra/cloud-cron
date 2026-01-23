@@ -16,13 +16,21 @@ class CapturingHandler(NotificationHandler):
         self.calls.append({"result": result, "rendered": rendered, "record": record})
 
 
-def build_sqs_event(body, *, event_source="aws:sqs", event_source_arn=None):
+def build_sqs_event(
+    body,
+    *,
+    event_source="aws:sqs",
+    event_source_arn=None,
+    message_attributes=None,
+):
     record = {
         "body": body,
         "eventSource": event_source,
     }
     if event_source_arn:
         record["eventSourceARN"] = event_source_arn
+    if message_attributes is not None:
+        record["messageAttributes"] = message_attributes
     return {"Records": [record]}
 
 
@@ -115,9 +123,7 @@ def test_notification_handler_logs_invocation(monkeypatch, caplog):
     with caplog.at_level(logging.INFO):
         handler.lambda_handler(event, context=None)
 
-    assert any(
-        record.message == "notification_invocation" for record in caplog.records
-    )
+    assert any(record.message == "notification_invocation" for record in caplog.records)
 
 
 def test_parse_result_rejects_missing_body(monkeypatch):
@@ -165,3 +171,32 @@ def test_parse_result_rejects_non_object_payload(monkeypatch):
 
     with pytest.raises(ValueError, match="Result payload must be a JSON object"):
         handler.lambda_handler(event, context=None)
+
+
+@pytest.mark.parametrize("include_result_type", [True, False])
+@pytest.mark.parametrize("payload_has_result_type", [True, False])
+def test_notification_handler_result_type_injection(
+    monkeypatch, include_result_type, payload_has_result_type
+):
+    monkeypatch.setenv("TEMPLATE", "Result {{ result_type | default('none') }}")
+    handler = CapturingHandler(
+        template_provider=EnvVarTemplateProvider(),
+        include_result_type=include_result_type,
+    )
+    payload = {"status": "ok"}
+    if payload_has_result_type:
+        payload["result_type"] = "payload"
+    event = build_sqs_event(
+        json.dumps(payload),
+        message_attributes={"result_type": {"stringValue": "attribute"}},
+    )
+
+    handler.lambda_handler(event, context=None)
+
+    result = handler.calls[0]["result"]
+    if payload_has_result_type:
+        assert result["result_type"] == "payload"
+    elif include_result_type:
+        assert result["result_type"] == "attribute"
+    else:
+        assert "result_type" not in result

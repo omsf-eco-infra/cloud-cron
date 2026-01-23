@@ -58,14 +58,11 @@ locals {
   active_print_image_uri  = module.print_lambda_image_build.image_uri_with_digest
 }
 
-module "sns_topics" {
-  source = "../../modules/sns-topics"
-
-  topic_names = {
-    example = "example-topic.fifo"
-  }
-
-  tags = local.common_tags
+resource "aws_sns_topic" "results" {
+  name                        = "cloud-cron-results.fifo"
+  fifo_topic                  = true
+  content_based_deduplication = true
+  tags                        = local.common_tags
 }
 
 module "scheduled_lambda" {
@@ -74,7 +71,7 @@ module "scheduled_lambda" {
   lambda_image_uri    = local.active_lambda_image_uri
   schedule_expression = var.schedule_expression
   lambda_name         = var.lambda_name
-  sns_topic_arns      = module.sns_topics.topic_arns
+  sns_topic_arn       = aws_sns_topic.results.arn
 
   tags = local.common_tags
 }
@@ -82,7 +79,7 @@ module "scheduled_lambda" {
 module "print_notification" {
   source = "../../modules/print-notification"
 
-  sns_topic_arn    = module.sns_topics.topic_arns.example
+  sns_topic_arn    = aws_sns_topic.results.arn
   fifo_queue_name  = "example-print.fifo"
   lambda_image_uri = local.active_print_image_uri
   template_file    = "${path.module}/templates/print.txt"
