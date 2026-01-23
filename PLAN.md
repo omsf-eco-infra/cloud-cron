@@ -52,9 +52,9 @@ To-do:
 
 - [x] Update `modules/scheduled-lambda` to accept `sns_topic_arn` (single) and adjust IAM to `sns:Publish` on that ARN.
 - [x] Update notification plumbing module to accept `result_types` and apply SNS filter policy on the subscription.
-- [ ] Update per-channel modules to pass through `result_types` and document the attribute name.
-- [ ] Update `src/cloud_cron/` helpers to publish with a `result_type` attribute and validate allowed types.
-- [x] Update `examples/basic` to use one topic and demonstrate multiple `result_types` subscriptions.
+- [x] Update existing per-channel modules to pass through `result_types` and document the attribute name.
+- [x] Update `src/cloud_cron/` helpers to publish with a `result_type` attribute and validate allowed types.
+- [x] Update `examples/basic` to use one topic and a single `result_types` subscription.
 - [x] Update module READMEs and `IDEA.md` usage examples to match the new wiring.
 
 ## Phase 3: Python runtime library for custom lambdas (`src/cloud_cron/`)
