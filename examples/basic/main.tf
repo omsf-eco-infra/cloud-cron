@@ -22,12 +22,10 @@ module "lambda_image_build" {
   repository_name = var.repository_name
   image_tag       = var.image_tag
   platform        = var.platform
-  build_args      = var.build_args
   tags            = local.common_tags
 }
 
 module "print_lambda_image_build" {
-  count  = var.print_enable_republish ? 0 : 1
   source = "../../modules/lambda-image-build"
 
   source_dir      = "${path.module}/../.."
@@ -39,26 +37,12 @@ module "print_lambda_image_build" {
   repository_name = var.print_repository_name
   image_tag       = var.image_tag
   platform        = var.platform
-  build_args      = var.build_args
   tags            = local.common_tags
-}
-
-module "print_lambda_container_republish" {
-  count  = var.print_enable_republish ? 1 : 0
-  source = "../../modules/lambda-container"
-
-  source_lambda_repo          = var.print_source_lambda_repo
-  source_lambda_tag           = var.print_source_lambda_tag
-  source_registry_id          = var.print_source_registry_id
-  destination_repository_name = var.print_destination_repository_name
-  enable_kms_encryption       = var.print_enable_kms_encryption
-  kms_key_arn                 = var.print_kms_key_arn
-  tags                        = local.common_tags
 }
 
 module "lambda_container_republish" {
   count  = var.enable_republish ? 1 : 0
-  source = "../../modules/lambda-container"
+  source = "../../modules/lambda-image-republish"
 
   source_lambda_repo          = var.source_lambda_repo
   source_lambda_tag           = var.source_lambda_tag
@@ -71,17 +55,14 @@ module "lambda_container_republish" {
 
 locals {
   active_lambda_image_uri = var.enable_republish ? module.lambda_container_republish[0].lambda_image_uri_with_digest : module.lambda_image_build.image_uri_with_digest
-  active_print_image_uri  = var.print_enable_republish ? module.print_lambda_container_republish[0].lambda_image_uri_with_digest : module.print_lambda_image_build[0].image_uri_with_digest
+  active_print_image_uri  = module.print_lambda_image_build.image_uri_with_digest
 }
 
-module "sns_topics" {
-  source = "../../modules/sns-topics"
-
-  topic_names = {
-    example = "example-topic.fifo"
-  }
-
-  tags = local.common_tags
+resource "aws_sns_topic" "results" {
+  name                        = "cloud-cron-results.fifo"
+  fifo_topic                  = true
+  content_based_deduplication = true
+  tags                        = local.common_tags
 }
 
 module "scheduled_lambda" {
@@ -90,7 +71,7 @@ module "scheduled_lambda" {
   lambda_image_uri    = local.active_lambda_image_uri
   schedule_expression = var.schedule_expression
   lambda_name         = var.lambda_name
-  sns_topic_arns      = module.sns_topics.topic_arns
+  sns_topic_arn       = aws_sns_topic.results.arn
 
   tags = local.common_tags
 }
@@ -98,7 +79,7 @@ module "scheduled_lambda" {
 module "print_notification" {
   source = "../../modules/print-notification"
 
-  sns_topic_arn    = module.sns_topics.topic_arns.example
+  sns_topic_arn    = aws_sns_topic.results.arn
   fifo_queue_name  = "example-print.fifo"
   lambda_image_uri = local.active_print_image_uri
   template_file    = "${path.module}/templates/print.txt"

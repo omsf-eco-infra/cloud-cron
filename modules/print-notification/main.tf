@@ -3,6 +3,8 @@ locals {
   lambda_name = coalesce(var.lambda_name, "cloudcron-print-${terraform.workspace}")
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role" "lambda_role" {
   name = "${local.lambda_name}-role"
   assume_role_policy = jsonencode({
@@ -25,6 +27,7 @@ module "plumbing" {
 
   sns_topic_arn       = var.sns_topic_arn
   lambda_function_arn = aws_lambda_function.print.arn
+  result_types        = var.result_types
   fifo_queue_name     = var.fifo_queue_name
   batch_size          = var.batch_size
   enabled             = var.enabled
@@ -43,7 +46,7 @@ resource "aws_iam_policy" "lambda_logs_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents",
         ]
-        Resource = "arn:aws:logs:*:*:*"
+        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:*"
       },
     ]
   })

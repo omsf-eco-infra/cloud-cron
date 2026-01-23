@@ -4,7 +4,7 @@
 
 ## Phase 0: Establish repo scaffolding
 
-- [x] Create directories: `modules/scheduled-lambda`, `modules/email-notification`, `modules/sms-notification`, `modules/lambda-container`, `examples/basic`.
+- [x] Create directories: `modules/scheduled-lambda`, `modules/email-notification`, `modules/sms-notification`, `modules/lambda-image-republish`, `examples/basic`.
 - [x] Add shared Terraform version constraints/provider stubs (`versions.tf`), ignore `.terraform.lock.hcl`, and add `.gitignore`.
 - [x] Wire `tofu fmt` via pre-commit hook.
 - [x] Add Pixi project file with toolchain (terraform/tofu, python for lambdas)
@@ -12,7 +12,7 @@
 
 ## Phase 1: Lambda container image management modules
 
-### Phase 1.1: Build Lambda container republish module (`modules/lambda-container`)
+### Phase 1.1: Build Lambda container republish module (`modules/lambda-image-republish`)
 - [x] Inputs: `source_lambda_repo`, `source_lambda_tag`, optional destination repo name, KMS encryption flag.
 - [x] Resources: destination ECR repo, permissions for pull/push, data source for source image digest, replication via `null_resource`/`local-exec` or pull-through cache rule.
 - [x] Outputs: destination `lambda_image_uri` for scheduled module.
@@ -27,11 +27,35 @@
 - [x] Example touchpoint: allow `examples/basic` to build/push a simple placeholder Lambda image from a local Dockerfile as an alternative to the republish module.
 
 ## Phase 2: Build scheduled Lambda module (`modules/scheduled-lambda`)
-- [x] Define inputs: `lambda_image_uri`, `schedule_expression`, `sns_topic_arns` (map topic key->ARN), optional `lambda_env`, `timeout`, `memory_size`, `tags`.
-- [x] Create resources: IAM role/policy (CloudWatch Logs + `sns:Publish` to provided ARNs), Lambda from container image, EventBridge rule/target/permission.
+- [x] Define inputs: `lambda_image_uri`, `schedule_expression`, `sns_topic_arn` (single), optional `lambda_env`, `timeout`, `memory_size`, `tags`.
+- [x] Create resources: IAM role/policy (CloudWatch Logs + `sns:Publish` to provided ARN), Lambda from container image, EventBridge rule/target/permission.
 - [x] Outputs: Lambda ARN, execution role ARN, log group name, schedule rule name.
 - [x] Docs: README with usage matching IDEA example.
 - [x] Example touchpoint: scaffold `examples/basic` with this module + stub SNS topic(s) and the container image outputs from Phase 1; `terraform validate/plan` should pass to prove schedule wiring.
+
+## Phase 2.5: Consolidate result routing into a single SNS topic
+
+Overview: replace per-result-type topics with one shared SNS topic and use message attributes + subscription filter policies to route results to notification channels.
+
+Success criteria:
+
+- Scheduled lambdas publish to one topic and set a `result_type` message attribute.
+- Notification modules accept `result_types` (list) and apply SNS filter policies to their subscriptions.
+- Examples and docs reflect the single-topic pattern.
+
+Decisions and motivations:
+
+- Use SNS filter policies to reduce infrastructure and make multi-type subscriptions easy.
+- Keep result types as message attributes to avoid changing payload shapes or handler code.
+
+To-do:
+
+- [x] Update `modules/scheduled-lambda` to accept `sns_topic_arn` (single) and adjust IAM to `sns:Publish` on that ARN.
+- [x] Update notification plumbing module to accept `result_types` and apply SNS filter policy on the subscription.
+- [x] Update existing per-channel modules to pass through `result_types` and document the attribute name.
+- [x] Update `src/cloud_cron/` helpers to publish with a `result_type` attribute and validate allowed types.
+- [x] Update `examples/basic` to use one topic and a single `result_types` subscription.
+- [x] Update module READMEs and `IDEA.md` usage examples to match the new wiring.
 
 ## Phase 3: Python runtime library for custom lambdas (`src/cloud_cron/`)
 
@@ -60,7 +84,7 @@ To-do:
 ## Phase 4: Build notification modules
 
 ### Phase 4.1: Notification containers and queueing infra
-- [ ] Build one container per notification channel (email, SMS, print) using shared helpers from `src/cloud_cron/notifications/`; allow build or republish via `lambda-image-build` or `lambda-container`.
+- [ ] Build one container per notification channel (email, SMS, print) using shared helpers from `src/cloud_cron/notifications/`; allow build or republish via `lambda-image-build` or `lambda-image-republish`.
 - [x] Add a minimal "print" notifier handler that renders the template and logs/prints it for easy testing.
 - [x] Terraform: reusable notification plumbing module (SNS FIFO topic -> SQS FIFO queue -> Lambda event source mapping) with SQS access policy output.
 - [ ] Terraform: per-channel container build/publish; channel modules use the plumbing module and add channel-specific IAM and config.
