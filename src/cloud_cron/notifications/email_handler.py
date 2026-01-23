@@ -4,10 +4,13 @@ from typing import Any, Mapping, Optional, Sequence
 import boto3
 from jinja2 import Environment
 
-from cloud_cron.notifications.base import NotificationHandler, TemplateProvider
+from cloud_cron.notifications.base import (
+    RenderedTemplateNotificationHandler,
+    TemplateProvider,
+)
 
 
-class EmailNotificationHandler(NotificationHandler):
+class EmailNotificationHandler(RenderedTemplateNotificationHandler):
     """
     Notification handler that renders subject/text/html templates and sends via SES.
 
@@ -53,14 +56,15 @@ class EmailNotificationHandler(NotificationHandler):
         jinja_env: Optional[Environment] = None,
     ) -> None:
         super().__init__(
-            template_provider=subject_template_provider,
+            template_providers={
+                "subject": subject_template_provider,
+                "text": text_template_provider,
+                "html": html_template_provider,
+            },
             expected_queue_arn=expected_queue_arn,
             logger=logger,
             jinja_env=jinja_env,
         )
-        self.subject_template_provider = subject_template_provider
-        self.text_template_provider = text_template_provider
-        self.html_template_provider = html_template_provider
         self.sender = sender
         if not recipients:
             raise ValueError("recipients must contain at least one email address")
@@ -68,38 +72,6 @@ class EmailNotificationHandler(NotificationHandler):
         self.config_set = config_set
         self.reply_to = list(reply_to) if reply_to else None
         self.ses_client = ses_client or boto3.client("ses")
-
-    def lambda_handler(self, event: Mapping[str, Any], context: Any) -> None:
-        """
-        Entry point for SQS-triggered email notifications.
-
-        Parameters
-        ----------
-        event : Mapping[str, Any]
-            Lambda event payload containing SQS records.
-        context : Any
-            Lambda context object.
-        """
-        self.logger.info(
-            "notification_invocation",
-            extra={"record_count": len(event.get("Records", []))},
-        )
-        subject_template = self.subject_template_provider.get_template()
-        text_template = self.text_template_provider.get_template()
-        html_template = self.html_template_provider.get_template()
-        for record, result in self._iter_results(event):
-            subject = self._render_template(subject_template, result)
-            text_body = self._render_template(text_template, result)
-            html_body = self._render_template(html_template, result)
-            self.notify(
-                result=result,
-                rendered={
-                    "subject": subject,
-                    "text": text_body,
-                    "html": html_body,
-                },
-                record=record,
-            )
 
     def notify(
         self,

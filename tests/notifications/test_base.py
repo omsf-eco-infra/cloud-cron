@@ -4,10 +4,13 @@ import logging
 import pytest
 from jinja2 import UndefinedError
 
-from cloud_cron.notifications.base import EnvVarTemplateProvider, NotificationHandler
+from cloud_cron.notifications.base import (
+    EnvVarTemplateProvider,
+    RenderedTemplateNotificationHandler,
+)
 
 
-class CapturingHandler(NotificationHandler):
+class CapturingHandler(RenderedTemplateNotificationHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.calls = []
@@ -49,7 +52,7 @@ def test_env_var_template_provider_requires_value(monkeypatch):
 
 def test_notification_handler_parses_sqs_json_body(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Status {{ status }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     event = build_sqs_event(json.dumps({"status": "ok"}))
 
     handler.lambda_handler(event, context=None)
@@ -57,7 +60,7 @@ def test_notification_handler_parses_sqs_json_body(monkeypatch):
     assert handler.calls == [
         {
             "result": {"status": "ok"},
-            "rendered": "Status ok",
+            "rendered": {"body": "Status ok"},
             "record": event["Records"][0],
         }
     ]
@@ -65,18 +68,18 @@ def test_notification_handler_parses_sqs_json_body(monkeypatch):
 
 def test_notification_handler_parses_sns_envelope(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Result {{ status }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     sns_body = json.dumps({"Message": json.dumps({"status": "good"})})
     event = build_sqs_event(sns_body)
 
     handler.lambda_handler(event, context=None)
 
-    assert handler.calls[0]["rendered"] == "Result good"
+    assert handler.calls[0]["rendered"]["body"] == "Result good"
 
 
 def test_notification_handler_rejects_wrong_event_source(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     event = build_sqs_event(json.dumps({"name": "Ada"}), event_source="aws:s3")
 
     with pytest.raises(ValueError, match="Unsupported event source"):
@@ -86,7 +89,7 @@ def test_notification_handler_rejects_wrong_event_source(monkeypatch):
 def test_notification_handler_validates_queue_arn(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
     handler = CapturingHandler(
-        template_provider=EnvVarTemplateProvider(),
+        template_providers={"body": EnvVarTemplateProvider()},
         expected_queue_arn="arn:aws:sqs:us-east-1:123:queue",
     )
     event = build_sqs_event(
@@ -100,7 +103,7 @@ def test_notification_handler_validates_queue_arn(monkeypatch):
 
 def test_notification_handler_raises_on_missing_template_vars(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     event = build_sqs_event(json.dumps({"status": "ok"}))
 
     with pytest.raises(UndefinedError):
@@ -110,7 +113,7 @@ def test_notification_handler_raises_on_missing_template_vars(monkeypatch):
 def test_notification_handler_logs_invocation(monkeypatch, caplog):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
     handler = CapturingHandler(
-        template_provider=EnvVarTemplateProvider(),
+        template_providers={"body": EnvVarTemplateProvider()},
         logger=logging.getLogger("test_notifications"),
     )
     event = {
@@ -128,7 +131,7 @@ def test_notification_handler_logs_invocation(monkeypatch, caplog):
 
 def test_parse_result_rejects_missing_body(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     event = {"Records": [{"eventSource": "aws:sqs"}]}
 
     with pytest.raises(ValueError, match="SQS record body is missing"):
@@ -137,7 +140,7 @@ def test_parse_result_rejects_missing_body(monkeypatch):
 
 def test_parse_result_rejects_invalid_json_body(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     event = build_sqs_event("{bad")
 
     with pytest.raises(ValueError, match="SQS record body must be valid JSON"):
@@ -146,7 +149,7 @@ def test_parse_result_rejects_invalid_json_body(monkeypatch):
 
 def test_parse_result_rejects_non_string_sns_message(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     body = json.dumps({"Message": {"status": "ok"}})
     event = build_sqs_event(body)
 
@@ -156,7 +159,7 @@ def test_parse_result_rejects_non_string_sns_message(monkeypatch):
 
 def test_parse_result_rejects_invalid_sns_message_json(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     body = json.dumps({"Message": "{bad"})
     event = build_sqs_event(body)
 
@@ -166,7 +169,7 @@ def test_parse_result_rejects_invalid_sns_message_json(monkeypatch):
 
 def test_parse_result_rejects_non_object_payload(monkeypatch):
     monkeypatch.setenv("TEMPLATE", "Hello {{ name }}")
-    handler = CapturingHandler(template_provider=EnvVarTemplateProvider())
+    handler = CapturingHandler(template_providers={"body": EnvVarTemplateProvider()})
     event = build_sqs_event(json.dumps(["not", "an", "object"]))
 
     with pytest.raises(ValueError, match="Result payload must be a JSON object"):
@@ -180,7 +183,7 @@ def test_notification_handler_result_type_injection(
 ):
     monkeypatch.setenv("TEMPLATE", "Result {{ result_type | default('none') }}")
     handler = CapturingHandler(
-        template_provider=EnvVarTemplateProvider(),
+        template_providers={"body": EnvVarTemplateProvider()},
         include_result_type=include_result_type,
     )
     payload = {"status": "ok"}

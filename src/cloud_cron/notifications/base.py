@@ -58,14 +58,14 @@ class EnvVarTemplateProvider(TemplateProvider):
         return template
 
 
-class NotificationHandler(ABC):
+class RenderedTemplateNotificationHandler(ABC):
     """
     Base class for SQS-driven notifications using Jinja2 templates.
 
     Parameters
     ----------
-    template_provider : TemplateProvider
-        Provider that returns the template string for rendering.
+    template_providers : Mapping[str, TemplateProvider]
+        Providers keyed by template name for rendering.
     expected_queue_arn : str, optional
         Queue ARN to validate incoming SQS records.
     include_result_type : bool, optional
@@ -78,14 +78,14 @@ class NotificationHandler(ABC):
 
     def __init__(
         self,
-        template_provider: TemplateProvider,
+        template_providers: Mapping[str, TemplateProvider],
         *,
         expected_queue_arn: Optional[str] = None,
         include_result_type: bool = True,
         logger: Optional[logging.Logger] = None,
         jinja_env: Optional[Environment] = None,
     ) -> None:
-        self.template_provider = template_provider
+        self.template_providers = dict(template_providers)
         self.expected_queue_arn = expected_queue_arn
         self.include_result_type = include_result_type
         self.logger = logger or logging.getLogger(self.__class__.__name__)
@@ -106,14 +106,21 @@ class NotificationHandler(ABC):
             "notification_invocation",
             extra={"record_count": len(event.get("Records", []))},
         )
-        template = self.template_provider.get_template()
+        templates = {
+            name: provider.get_template()
+            for name, provider in self.template_providers.items()
+        }
         for record, result in self._iter_results(event):
-            rendered = self._render_template(template, result)
+            rendered = self._render_templates(templates, result)
             self.notify(result=result, rendered=rendered, record=record)
 
     @abstractmethod
     def notify(
-        self, *, result: Mapping[str, Any], rendered: str, record: Mapping[str, Any]
+        self,
+        *,
+        result: Mapping[str, Any],
+        rendered: Mapping[str, str],
+        record: Mapping[str, Any],
     ) -> None:
         """
         Send the rendered notification payload to the target channel.
@@ -122,8 +129,8 @@ class NotificationHandler(ABC):
         ----------
         result : Mapping[str, Any]
             Parsed result payload from the SNS-to-SQS pipeline.
-        rendered : str
-            Rendered template output.
+        rendered : Mapping[str, str]
+            Rendered template output keyed by template name.
         record : Mapping[str, Any]
             Original SQS record for additional metadata.
         """
@@ -172,6 +179,14 @@ class NotificationHandler(ABC):
     def _render_template(self, template: str, result: Mapping[str, Any]) -> str:
         jinja_template = self.jinja_env.from_string(template)
         return jinja_template.render(**result)
+
+    def _render_templates(
+        self, templates: Mapping[str, str], result: Mapping[str, Any]
+    ) -> dict[str, str]:
+        return {
+            name: self._render_template(template, result)
+            for name, template in templates.items()
+        }
 
     @staticmethod
     def _extract_result_type(record: Mapping[str, Any]) -> Optional[str]:
