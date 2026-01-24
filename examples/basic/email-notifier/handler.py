@@ -25,4 +25,4 @@ handler_instance = EmailNotificationHandler(
 
 
 def handler(event, context):
-    handler_instance.lambda_handler(event, context)
+    return handler_instance.lambda_handler(event, context)

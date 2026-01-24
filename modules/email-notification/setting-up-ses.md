@@ -12,8 +12,8 @@ Once you go through the wizard, an email will be sent to the address you provide
 
 After going through the wizard, AWS will provide you with several DNS records to add. This will include 3 DKIM (CNAME) records, and a TXT record for DMARC. Add these records to your domain's DNS settings.
 
-### Step 3: Test from within the Sandbox
+## Step 3: Test from within the Sandbox
 
 Initially, you'll be in a sandbox environment, with limited permissions. Note that you need to verify any email addresses you want to send to while in the sandbox. You can add identities in the "Identities" section of the SES console.
 
-### Step 4: Move out of the Sandbox
+## Step 4: Move out of the Sandbox
