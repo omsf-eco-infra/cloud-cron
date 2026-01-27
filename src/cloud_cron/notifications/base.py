@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 from jinja2 import Environment, StrictUndefined
 
@@ -58,14 +58,14 @@ class EnvVarTemplateProvider(TemplateProvider):
         return template
 
 
-class NotificationHandler(ABC):
+class RenderedTemplateNotificationHandler(ABC):
     """
     Base class for SQS-driven notifications using Jinja2 templates.
 
     Parameters
     ----------
-    template_provider : TemplateProvider
-        Provider that returns the template string for rendering.
+    template_providers : Mapping[str, TemplateProvider]
+        Providers keyed by template name for rendering.
     expected_queue_arn : str, optional
         Queue ARN to validate incoming SQS records.
     include_result_type : bool, optional
@@ -78,20 +78,22 @@ class NotificationHandler(ABC):
 
     def __init__(
         self,
-        template_provider: TemplateProvider,
+        template_providers: Mapping[str, TemplateProvider],
         *,
         expected_queue_arn: Optional[str] = None,
         include_result_type: bool = True,
         logger: Optional[logging.Logger] = None,
         jinja_env: Optional[Environment] = None,
     ) -> None:
-        self.template_provider = template_provider
+        self.template_providers = dict(template_providers)
         self.expected_queue_arn = expected_queue_arn
         self.include_result_type = include_result_type
         self.logger = logger or logging.getLogger(self.__class__.__name__)
         self.jinja_env = jinja_env or Environment(undefined=StrictUndefined)
 
-    def lambda_handler(self, event: Mapping[str, Any], context: Any) -> None:
+    def lambda_handler(
+        self, event: Mapping[str, Any], context: Any
+    ) -> dict[str, list[dict[str, str]]]:
         """
         Entry point for SQS-triggered notification handlers.
 
@@ -101,19 +103,46 @@ class NotificationHandler(ABC):
             Lambda event payload containing SQS records.
         context : Any
             Lambda context object.
+
+        Returns
+        -------
+        dict[str, list[dict[str, str]]]
+            Batch item failures payload for SQS partial retries.
         """
         self.logger.info(
             "notification_invocation",
             extra={"record_count": len(event.get("Records", []))},
         )
-        template = self.template_provider.get_template()
-        for record, result in self._iter_results(event):
-            rendered = self._render_template(template, result)
-            self.notify(result=result, rendered=rendered, record=record)
+        templates = {
+            name: provider.get_template()
+            for name, provider in self.template_providers.items()
+        }
+        failures = []
+        records = event.get("Records", [])
+        for record in records:
+            try:
+                self._validate_record(record)
+                result = self._parse_result(record)
+                rendered = self._render_templates(templates, result)
+                self.notify(result=result, rendered=rendered, record=record)
+            except Exception as exc:
+                message_id = record.get("messageId")
+                if not message_id:
+                    raise
+                self.logger.exception(
+                    "notification_record_failed",
+                    extra={"message_id": message_id, "error": str(exc)},
+                )
+                failures.append({"itemIdentifier": message_id})
+        return {"batchItemFailures": failures}
 
     @abstractmethod
     def notify(
-        self, *, result: Mapping[str, Any], rendered: str, record: Mapping[str, Any]
+        self,
+        *,
+        result: Mapping[str, Any],
+        rendered: Mapping[str, str],
+        record: Mapping[str, Any],
     ) -> None:
         """
         Send the rendered notification payload to the target channel.
@@ -122,28 +151,23 @@ class NotificationHandler(ABC):
         ----------
         result : Mapping[str, Any]
             Parsed result payload from the SNS-to-SQS pipeline.
-        rendered : str
-            Rendered template output.
+        rendered : Mapping[str, str]
+            Rendered template output keyed by template name.
         record : Mapping[str, Any]
             Original SQS record for additional metadata.
         """
         raise NotImplementedError
 
-    def _iter_results(
-        self, event: Mapping[str, Any]
-    ) -> Iterable[tuple[Mapping[str, Any], Mapping[str, Any]]]:
-        records = event.get("Records", [])
-        for record in records:
-            event_source = record.get("eventSource")
-            if event_source and event_source != "aws:sqs":
-                raise ValueError(f"Unsupported event source: {event_source}")
-            if self.expected_queue_arn:
-                event_arn = record.get("eventSourceARN")
-                if event_arn != self.expected_queue_arn:
-                    raise ValueError(
-                        f"SQS queue mismatch (expected {self.expected_queue_arn}, got {event_arn})"
-                    )
-            yield record, self._parse_result(record)
+    def _validate_record(self, record: Mapping[str, Any]) -> None:
+        event_source = record.get("eventSource")
+        if event_source and event_source != "aws:sqs":
+            raise ValueError(f"Unsupported event source: {event_source}")
+        if self.expected_queue_arn:
+            event_arn = record.get("eventSourceARN")
+            if event_arn != self.expected_queue_arn:
+                raise ValueError(
+                    f"SQS queue mismatch (expected {self.expected_queue_arn}, got {event_arn})"
+                )
 
     def _parse_result(self, record: Mapping[str, Any]) -> Mapping[str, Any]:
         body = record.get("body")
@@ -172,6 +196,14 @@ class NotificationHandler(ABC):
     def _render_template(self, template: str, result: Mapping[str, Any]) -> str:
         jinja_template = self.jinja_env.from_string(template)
         return jinja_template.render(**result)
+
+    def _render_templates(
+        self, templates: Mapping[str, str], result: Mapping[str, Any]
+    ) -> dict[str, str]:
+        return {
+            name: self._render_template(template, result)
+            for name, template in templates.items()
+        }
 
     @staticmethod
     def _extract_result_type(record: Mapping[str, Any]) -> Optional[str]:
