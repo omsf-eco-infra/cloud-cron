@@ -77,6 +77,29 @@ resource "aws_lambda_function" "scheduled" {
   tags = local.tags
 }
 
+resource "aws_lambda_function_url" "test" {
+  count              = var.create_test_url ? 1 : 0
+  function_name      = aws_lambda_function.scheduled.function_name
+  authorization_type = "NONE"
+}
+
+resource "aws_lambda_permission" "allow_function_url" {
+  count                  = var.create_test_url ? 1 : 0
+  statement_id           = "AllowFunctionUrlInvoke"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.scheduled.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
+resource "aws_lambda_permission" "allow_function_url_invoke" {
+  count         = var.create_test_url ? 1 : 0
+  statement_id  = "AllowFunctionUrlInvokeFunction"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.scheduled.function_name
+  principal     = "*"
+}
+
 resource "aws_cloudwatch_event_rule" "schedule" {
   name                = "${aws_lambda_function.scheduled.function_name}-schedule"
   schedule_expression = var.schedule_expression

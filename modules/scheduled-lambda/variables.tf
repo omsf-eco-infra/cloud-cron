@@ -48,3 +48,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "create_test_url" {
+  description = "Whether to create a Lambda Function URL for on-demand test invokes."
+  type        = bool
+  default     = false
+}
