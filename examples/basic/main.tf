@@ -25,34 +25,13 @@ module "lambda_image_build" {
   tags            = local.common_tags
 }
 
-module "print_lambda_image_build" {
-  source = "../../modules/lambda-image-build"
+module "notification_image_republish" {
+  source = "../../modules/lambda-image-republish"
 
-  source_dir      = "${path.module}/../.."
-  dockerfile_path = "${path.module}/print-notifier/Dockerfile"
-  build_context_paths = [
-    "${path.module}/print-notifier",
-    "${path.module}/../../src/cloud_cron",
-  ]
-  repository_name = var.print_repository_name
-  image_tag       = var.image_tag
-  platform        = var.platform
-  tags            = local.common_tags
-}
+  source_lambda_repo = var.notification_image_repository_url
+  source_lambda_tag  = var.notification_image_tag
 
-module "email_lambda_image_build" {
-  source = "../../modules/lambda-image-build"
-
-  source_dir      = "${path.module}/../.."
-  dockerfile_path = "${path.module}/email-notifier/Dockerfile"
-  build_context_paths = [
-    "${path.module}/email-notifier",
-    "${path.module}/../../src/cloud_cron",
-  ]
-  repository_name = var.email_repository_name
-  image_tag       = var.image_tag
-  platform        = var.platform
-  tags            = local.common_tags
+  tags = local.common_tags
 }
 
 module "lambda_container_republish" {
@@ -61,7 +40,6 @@ module "lambda_container_republish" {
 
   source_lambda_repo          = var.source_lambda_repo
   source_lambda_tag           = var.source_lambda_tag
-  source_registry_id          = var.source_registry_id
   destination_repository_name = var.destination_repository_name
   enable_kms_encryption       = var.enable_kms_encryption
   kms_key_arn                 = var.kms_key_arn
@@ -70,8 +48,7 @@ module "lambda_container_republish" {
 
 locals {
   active_lambda_image_uri = var.enable_republish ? module.lambda_container_republish[0].lambda_image_uri_with_digest : module.lambda_image_build.image_uri_with_digest
-  active_print_image_uri  = module.print_lambda_image_build.image_uri_with_digest
-  active_email_image_uri  = module.email_lambda_image_build.image_uri_with_digest
+  notification_image_uri  = module.notification_image_republish.lambda_image_uri_with_digest
 }
 
 module "cloud_cron" {
@@ -90,7 +67,7 @@ module "print_notification" {
 
   sns_topic_arn    = module.cloud_cron.sns_topic_arn
   fifo_queue_name  = "example-print.fifo"
-  lambda_image_uri = local.active_print_image_uri
+  lambda_image_uri = local.notification_image_uri
   template_file    = "${path.module}/templates/print.txt"
 
   tags = local.common_tags
@@ -101,7 +78,7 @@ module "email_notification" {
 
   sns_topic_arn    = module.cloud_cron.sns_topic_arn
   fifo_queue_name  = "example-email.fifo"
-  lambda_image_uri = local.active_email_image_uri
+  lambda_image_uri = local.notification_image_uri
 
   sender     = var.email_sender
   recipients = var.email_recipients
