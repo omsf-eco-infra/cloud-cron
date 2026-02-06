@@ -94,6 +94,12 @@ variable "lambda_name" {
   default     = "cloudcron-basic"
 }
 
+variable "create_test_url" {
+  description = "Whether to create a Lambda Function URL for on-demand test invokes."
+  type        = bool
+  default     = false
+}
+
 variable "email_sender" {
   description = "Sender email address for the SES notifier."
   type        = string

@@ -48,3 +48,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "create_test_url" {
+  description = "Create a public Lambda Function URL for temporary testing only (do not use in production)."
+  type        = bool
+  default     = false
+}
