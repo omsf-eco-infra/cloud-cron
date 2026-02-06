@@ -50,7 +50,7 @@ variable "tags" {
 }
 
 variable "create_test_url" {
-  description = "Whether to create a Lambda Function URL for on-demand test invokes."
+  description = "Create a public Lambda Function URL for temporary testing only (do not use in production)."
   type        = bool
   default     = false
 }
