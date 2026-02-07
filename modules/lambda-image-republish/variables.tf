@@ -1,6 +1,11 @@
 variable "source_lambda_repo" {
-  description = "Source public ECR repository (e.g., <namespace>/<repo> or public.ecr.aws/<namespace>/<repo>)."
+  description = "Source public ECR repository (public.ecr.aws/<namespace>/<repo>)."
   type        = string
+
+  validation {
+    condition     = can(regex("^public\\.ecr\\.aws/[^/]+/[^/]+$", var.source_lambda_repo))
+    error_message = "source_lambda_repo must be a public ECR URL like public.ecr.aws/<namespace>/<repo>."
+  }
 }
 
 variable "source_lambda_tag" {
@@ -12,6 +17,11 @@ variable "destination_repository_name" {
   description = "Optional override for the destination repository name. Defaults to <source>-local."
   type        = string
   default     = null
+
+  validation {
+    condition     = var.destination_repository_name == null || length(regexall("/", var.destination_repository_name)) == 0
+    error_message = "destination_repository_name must not contain '/'."
+  }
 }
 
 variable "enable_kms_encryption" {

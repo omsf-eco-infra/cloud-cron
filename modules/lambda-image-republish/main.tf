@@ -1,8 +1,9 @@
 locals {
-  source_repo_clean = replace(replace(replace(replace(var.source_lambda_repo, "^https?://", ""), ":[^:]+$", ""), "^public\\.ecr\\.aws/", ""), "^gallery\\.ecr\\.aws/", "")
-  source_repo_parts = split("/", local.source_repo_clean)
-  source_repo       = join("/", slice(local.source_repo_parts, length(local.source_repo_parts) - 2, length(local.source_repo_parts)))
-  repository_name   = coalesce(var.destination_repository_name, "${local.source_repo}-local")
+  source_repo_parts = split("/", var.source_lambda_repo)
+  source_namespace  = local.source_repo_parts[1]
+  source_repo_name  = local.source_repo_parts[2]
+  source_repo       = "${local.source_namespace}/${local.source_repo_name}"
+  repository_name   = coalesce(var.destination_repository_name, "${local.source_repo_name}-local")
   tags              = merge({ managed_by = "cloudcron" }, var.tags)
   source_image_uri = format(
     "public.ecr.aws/%s:%s",
