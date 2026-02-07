@@ -10,18 +10,6 @@ variable "repository_name" {
   default     = null
 }
 
-variable "print_repository_name" {
-  description = "Optional repository name for the print notifier image."
-  type        = string
-  default     = "cloud-cron-print"
-}
-
-variable "email_repository_name" {
-  description = "Optional repository name for the email notifier image."
-  type        = string
-  default     = "cloud-cron-email"
-}
-
 variable "image_tag" {
   description = "Tag to use for the locally built image."
   type        = string
@@ -32,6 +20,18 @@ variable "platform" {
   description = "Target platform for the container build."
   type        = string
   default     = "linux/amd64"
+}
+
+variable "notification_image_repository_url" {
+  description = "Repository URL hosting the notification-container image to republish."
+  type        = string
+  default     = "public.ecr.aws/i9p4w7k9/cloud-cron-notifications"
+}
+
+variable "notification_image_tag" {
+  description = "Tag for the notification-container image to republish."
+  type        = string
+  default     = "latest"
 }
 
 variable "enable_republish" {
@@ -50,12 +50,6 @@ variable "source_lambda_tag" {
   description = "Tag in the source repository to republish."
   type        = string
   default     = "latest"
-}
-
-variable "source_registry_id" {
-  description = "Optional registry ID for the source repository."
-  type        = string
-  default     = null
 }
 
 variable "destination_repository_name" {

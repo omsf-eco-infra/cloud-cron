@@ -1,12 +1,13 @@
 locals {
-  repository_name = coalesce(var.destination_repository_name, "${var.source_lambda_repo}-local")
-  registry_id     = coalesce(var.source_registry_id, data.aws_caller_identity.current.account_id)
-  tags            = merge({ managed_by = "cloudcron" }, var.tags)
+  source_repo_parts = split("/", var.source_lambda_repo)
+  source_namespace  = local.source_repo_parts[1]
+  source_repo_name  = local.source_repo_parts[2]
+  source_repo       = "${local.source_namespace}/${local.source_repo_name}"
+  repository_name   = coalesce(var.destination_repository_name, "${local.source_repo_name}-local")
+  tags              = merge({ managed_by = "cloudcron" }, var.tags)
   source_image_uri = format(
-    "%s.dkr.ecr.%s.amazonaws.com/%s:%s",
-    local.registry_id,
-    data.aws_region.current.name,
-    var.source_lambda_repo,
+    "public.ecr.aws/%s:%s",
+    local.source_repo,
     var.source_lambda_tag,
   )
   destination_image_uri = format(
@@ -19,12 +20,6 @@ locals {
 data "aws_caller_identity" "current" {}
 
 data "aws_region" "current" {}
-
-data "aws_ecr_image" "source" {
-  repository_name = var.source_lambda_repo
-  image_tag       = var.source_lambda_tag
-  registry_id     = local.registry_id
-}
 
 resource "aws_ecr_repository" "destination" {
   name                 = local.repository_name
@@ -63,7 +58,8 @@ resource "aws_ecr_repository_policy" "self_access" {
 
 resource "null_resource" "republish_image" {
   triggers = {
-    source_digest               = data.aws_ecr_image.source.image_digest
+    source_repository           = local.source_repo
+    source_tag                  = var.source_lambda_tag
     destination_repository      = aws_ecr_repository.destination.repository_url
     destination_image_tag       = var.source_lambda_tag
     enable_kms_encryption       = tostring(var.enable_kms_encryption)
@@ -74,6 +70,7 @@ resource "null_resource" "republish_image" {
     interpreter = ["/bin/sh", "-c"]
     command     = <<-EOC
       set -euo pipefail
+      aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
       aws ecr get-login-password --region ${data.aws_region.current.name} | docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.name}.amazonaws.com
       docker pull ${local.source_image_uri}
       docker tag ${local.source_image_uri} ${local.destination_image_uri}
