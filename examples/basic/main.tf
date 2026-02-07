@@ -58,6 +58,7 @@ module "cloud_cron" {
   lambda_image_uri    = local.active_lambda_image_uri
   schedule_expression = var.schedule_expression
   lambda_name         = var.lambda_name
+  create_test_url     = var.create_test_url
 
   tags = local.common_tags
 }
@@ -109,4 +110,9 @@ output "active_lambda_image_uri" {
 output "scheduled_lambda_arn" {
   description = "ARN of the scheduled Lambda."
   value       = module.cloud_cron.scheduled_lambda_arn
+}
+
+output "scheduled_lambda_test_url" {
+  description = "Lambda Function URL for on-demand test invokes (null if disabled)."
+  value       = module.scheduled_lambda.test_function_url
 }

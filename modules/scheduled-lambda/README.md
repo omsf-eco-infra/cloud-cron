@@ -33,6 +33,7 @@ module "scheduled_lambda" {
 - `lambda_name` (string): Optional name override for the Lambda.
 - `image_command` (list(string)): Optional override for the container CMD/handler.
 - `tags` (map(string)): Tags to apply to created resources.
+- `create_test_url` (bool): Create a public Lambda Function URL for temporary testing only (not for production). This URL has no auth and is publicly accessible, so it can be abused.
 
 ## Outputs
 
@@ -40,3 +41,4 @@ module "scheduled_lambda" {
 - `execution_role_arn`: ARN of the Lambda execution role.
 - `log_group_name`: CloudWatch log group name for the Lambda.
 - `schedule_rule_name`: Name of the EventBridge schedule rule.
+- `test_function_url`: Function URL for temporary testing (null if disabled).

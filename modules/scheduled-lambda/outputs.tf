@@ -17,3 +17,8 @@ output "schedule_rule_name" {
   description = "Name of the EventBridge schedule rule."
   value       = aws_cloudwatch_event_rule.schedule.name
 }
+
+output "test_function_url" {
+  description = "Function URL for on-demand test invokes (null if disabled)."
+  value       = try(aws_lambda_function_url.test[0].function_url, null)
+}
