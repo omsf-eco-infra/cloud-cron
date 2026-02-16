@@ -1,17 +1,16 @@
 variable "source_lambda_repo" {
-  description = "Name of the source ECR repository that already contains the Lambda image."
+  description = "Source public ECR repository (public.ecr.aws/<namespace>/<repo>)."
   type        = string
+
+  validation {
+    condition     = can(regex("^public\\.ecr\\.aws/[^/]+/[^/]+$", var.source_lambda_repo))
+    error_message = "source_lambda_repo must be a public ECR URL like public.ecr.aws/<namespace>/<repo>."
+  }
 }
 
 variable "source_lambda_tag" {
-  description = "Image tag to republish from the source repository."
+  description = "Image tag to republish from the public ECR repository."
   type        = string
-}
-
-variable "source_registry_id" {
-  description = "Optional registry ID for the source repository. Defaults to the current account."
-  type        = string
-  default     = null
 }
 
 variable "destination_repository_name" {
