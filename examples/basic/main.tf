@@ -4,7 +4,7 @@ provider "aws" {
 
 locals {
   common_tags = merge(
-    { managed_by = "cloudcron" },
+    { managed_by = "lambdacron" },
     var.tags,
     { project = "cloud-cron-example-basic" },
   )

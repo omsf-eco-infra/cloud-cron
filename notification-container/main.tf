@@ -8,7 +8,7 @@ provider "aws" {
 }
 
 locals {
-  tags = merge({ managed_by = "cloudcron" }, var.tags)
+  tags = merge({ managed_by = "lambdacron" }, var.tags)
 
   build_context   = abspath("${path.module}/..")
   dockerfile_path = "${path.module}/Dockerfile"

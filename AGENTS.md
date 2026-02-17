@@ -24,7 +24,7 @@
 ## Infrastructure (opentofu)
 - Keep infrastructure code formatted and validated: `tofu fmt` and `tofu validate` before sharing.
 - Separate plan/apply steps; never apply without review. Capture variables in `.tfvars` or env, not inline secrets.
-- AWS resources should be tagged with `managed_by`, defaulting to `cloudcron` if not set.
+- AWS resources should be tagged with `managed_by`, defaulting to `lambdacron` if not set.
 
 
 ## Observability and Safety
