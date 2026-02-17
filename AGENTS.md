@@ -1,4 +1,4 @@
-# Cloud Cron Agents
+# LambdaCron Agents
 
 - Big picture vision is kept in `IDEA.md`.
 - The specific plan we're executing is in `PLAN.md`.
