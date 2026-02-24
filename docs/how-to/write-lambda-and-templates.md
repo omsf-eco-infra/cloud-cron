@@ -3,12 +3,14 @@
 When you create a custom LambdaCron task, you also need to create Jinja templates for whatever notification channel you're using. The main idea is that your function returns a dictionary mapping a result type to a payload. Your notification channel will respond to a specific result type, and the payload will be rendered by Jinja templates to create the final notification content.
 
 ## When to Use
-- You are creating a custom LambdaCron task
-- You want to customize the template of your notifications
+
+* You are creating a custom LambdaCron task
+* You want to customize the template of your notifications
 
 ## Goal
-- Write Python task code that returns LambdaCron-compatible results.
-- Write Jinja templates that render those result fields for print/email notifications.
+
+* Write Python task code that returns LambdaCron-compatible results.
+* Write Jinja templates that render those result fields for print/email notifications.
 
 ## 1. Write a Task That Returns `result_type -> payload`
 
@@ -29,9 +31,9 @@ handler = task.lambda_handler
 
 Based on `examples/basic/lambda/lambda_module.py`:
 
-- Key (`example`) is the `result_type`.
-- Value (`{"message": "Hello World"}`) is the payload rendered by templates.
-- The payload automatically has the key `result_type` injected by the notification handler, so you can access it in templates as `{{ result_type }}`.
+* Key (`example`) is the `result_type`.
+* Value (`{"message": "Hello World"}`) is the payload rendered by templates.
+* The payload automatically has the key `result_type` injected by the notification handler, so you can access it in templates as `{{ result_type }}`.
 
 ## 2. Create templates that use the payload fields
 
@@ -80,6 +82,7 @@ Then you use that structured data in your template:
 ## 3. Understand How Code Output Becomes Template Variables
 
 At runtime:
+
 1. `_perform_task` returns `{"result_type": payload}` entries.
 2. LambdaCron publishes one SNS message per entry, with `result_type` in message attributes.
 3. Notification handlers parse the JSON payload.
@@ -87,12 +90,22 @@ At runtime:
 
 Important detail:
 
-- `result_type` is injected into the render payload by the notification handler when available in message attributes.
-- That is why templates like `{{ result_type }}` work even when your `_perform_task` payload does not explicitly include a `result_type` field.
+* `result_type` is injected into the render payload by the notification handler when available in message attributes.
+* That is why templates like `{{ result_type }}` work even when your `_perform_task` payload does not explicitly include a `result_type` field.
 
 ## 4. Checklist Before Deploying
 
-- Ensure payload values are JSON-serializable.
-- Ensure template variables exactly match payload field names.
-- Don't use `result_type` as a payload field name in your task, as it's reserved for the notification handler to inject the result type.
-- Keep templates strict: missing fields will fail rendering (LambdaCron uses strict Jinja undefined behavior).
+* Ensure payload values are JSON-serializable.
+* Ensure template variables exactly match payload field names.
+* Keep templates strict: missing fields will fail rendering (LambdaCron uses strict Jinja undefined behavior).
+
+## 5. Tip for Debugging Templates
+
+You can test your templates using the `lambdacron.render` module, which takes in the output of your `_perform_task` and renders it with a template (for a given result type).
+
+
+If you set up your lambda with a main guard that runs `_perform_task` and prints its output, you can see the templated results with:
+
+```bash
+python my_lambda.py | python -m lambdacron.render -t my_template.jinja --result-type example
+```
