@@ -667,7 +667,7 @@ packages:
 - pypi: ./
   name: lambdacron
   version: 0.1.0
-  sha256: 89f4b5cb968c39c5e7f5b11359fc0a618b02e98340867a21f4c1b7f6460a168d
+  sha256: b1ff19db954695a7b8be03584fbde425de7799de6236f7382b5e62c58cf6b06c
   requires_dist:
   - boto3
   - jinja2
@@ -675,7 +675,7 @@ packages:
   - pytest-cov ; extra == 'dev'
   - moto ; extra == 'dev'
   - pre-commit ; extra == 'dev'
-  - mkdocs ; extra == 'dev'
+  - mkdocs<2 ; extra == 'dev'
   - mkdocs-material ; extra == 'dev'
   requires_python: '>=3.12'
 - conda: https://conda.anaconda.org/conda-forge/linux-64/ld_impl_linux-64-2.45-default_hbd61a6d_105.conda
