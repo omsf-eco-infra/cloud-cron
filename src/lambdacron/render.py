@@ -14,7 +14,7 @@ from lambdacron.notifications.base import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Render a notification template using LambdaCron-style result payload data."
+        description="Render a notification template using LambdaCron task output data."
     )
     parser.add_argument(
         "output_json",
@@ -22,8 +22,9 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default="-",
         help=(
-            "JSON file containing the payload value for the selected result type. "
-            "Use '-' or omit this argument to read from stdin."
+            "JSON file containing the direct output from `_perform_task` "
+            "(a result-type-to-payload object). Use '-' or omit this argument "
+            "to read from stdin."
         ),
     )
     parser.add_argument(
@@ -86,17 +87,19 @@ def read_payload_json(source: str, *, stdin: TextIO) -> str:
     return Path(source).read_text(encoding="utf-8")
 
 
-def maybe_extract_result_payload(payload_json: str, *, result_type: str) -> str:
+def extract_result_payload(payload_json: str, *, result_type: str) -> str:
     try:
         payload = json.loads(payload_json)
-    except json.JSONDecodeError:
-        return payload_json
+    except json.JSONDecodeError as exc:
+        raise ValueError("Task output must be valid JSON") from exc
     if not isinstance(payload, dict):
-        return payload_json
+        raise ValueError("Task output must be a JSON object keyed by result type")
     selected = payload.get(result_type)
-    if "result_type" not in payload and isinstance(selected, dict):
-        return json.dumps(selected)
-    return payload_json
+    if not isinstance(selected, dict):
+        raise ValueError(
+            f"Result payload for type '{result_type}' must be a JSON object"
+        )
+    return json.dumps(selected)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -104,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         payload_json = read_payload_json(args.output_json, stdin=sys.stdin)
-        payload_json = maybe_extract_result_payload(
+        payload_json = extract_result_payload(
             payload_json, result_type=args.result_type
         )
         handler = RenderNotificationHandler(template_path=args.template)
