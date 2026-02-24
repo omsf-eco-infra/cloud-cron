@@ -1,7 +1,9 @@
 # Set Up SES Prerequisites
 
+You'll need to set up SES once per AWS account and region where you want to send email notifications from LambdaCron. You can re-use the same SES setup for multiple LambdaCron functions.
+
 ## When to Use
-- You want to use Amazon SES as the delivery provider for Cloud Cron email notifications.
+- You want to use Amazon SES as the delivery provider for LambdaCron email notifications.
 - You have not yet prepared SES identities or account access in the target AWS region.
 
 ## Inputs to Provide
