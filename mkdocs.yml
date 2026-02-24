@@ -1,0 +1,15 @@
+site_name: LambdaCron
+docs_dir: docs
+theme:
+  name: material
+nav:
+  - Home: index.md
+  - Explanation:
+      - Architecture: explanation/architecture.md
+      - Data Flow: explanation/data-flow.md
+      - Lambda Architecture: explanation/lambda-architecture.md
+  - How-to:
+      - Write Lambda and Templates: how-to/write-lambda-and-templates.md
+      - Set Up SES Prerequisites: how-to/set-up-ses.md
+      - Use Email Notifications: how-to/use-email-notifications.md
+      - Use Test URL: how-to/use-test-url.md
