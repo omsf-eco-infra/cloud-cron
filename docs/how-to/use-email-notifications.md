@@ -118,7 +118,7 @@ aws sns publish \
   --message-group-id "email-smoke-test"
 ```
 
-Note that the test URL won't create an email unless the result creates a message with a `result_type` value included in in your notifier's `result_types` list.
+Note that the test URL won't create an email unless the result creates a message with a `result_type` value included in your notifier's `result_types` list.
 
 If you receive the email, then it was successful!
 

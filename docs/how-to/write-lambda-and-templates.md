@@ -52,7 +52,7 @@ You can use a more complicated template if your payload is more complex. For exa
       {"id": 1, "name": "Task 1"},
       {"id": 2, "name": "Task 2"}
     ]
-  }
+  },
   "FAILURE": {
     "tasks": [
       {"id": 3, "name": "Task 3"}
