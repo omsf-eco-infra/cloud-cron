@@ -2,6 +2,7 @@ locals {
   tags                = merge({ managed_by = "lambdacron" }, var.tags)
   tf_state_bucket_arn = "arn:aws:s3:::${var.state_bucket}"
   tf_state_object_arn = "${local.tf_state_bucket_arn}/*"
+  lock_table_region   = coalesce(var.aws_region, data.aws_region.current.name)
   github_repository_name = (
     var.github_repository == null
     ? null
@@ -10,14 +11,15 @@ locals {
   backend_actions_secrets = (
     local.github_repository_name == null
     ? {}
-    : {
-      TF_STATE_BUCKET = var.state_bucket
-      TF_STATE_TABLE  = var.locks_table
-    }
+    : merge(
+      { TF_STATE_BUCKET = var.state_bucket },
+      var.locks_table == null ? {} : { TF_STATE_TABLE = var.locks_table },
+    )
   )
 }
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 data "aws_iam_policy_document" "terraform_backend_access" {
   statement {
@@ -39,16 +41,19 @@ data "aws_iam_policy_document" "terraform_backend_access" {
     resources = [local.tf_state_object_arn]
   }
 
-  statement {
-    sid = "TerraformLockTableAccess"
-    actions = [
-      "dynamodb:DeleteItem",
-      "dynamodb:DescribeTable",
-      "dynamodb:GetItem",
-      "dynamodb:PutItem",
-      "dynamodb:UpdateItem",
-    ]
-    resources = ["arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/${var.locks_table}"]
+  dynamic "statement" {
+    for_each = var.locks_table == null ? [] : [var.locks_table]
+    content {
+      sid = "TerraformLockTableAccess"
+      actions = [
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable",
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+      ]
+      resources = ["arn:aws:dynamodb:${local.lock_table_region}:${data.aws_caller_identity.current.account_id}:table/${statement.value}"]
+    }
   }
 }
 

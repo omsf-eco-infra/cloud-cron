@@ -19,22 +19,26 @@ variable "state_bucket" {
 }
 
 variable "locks_table" {
-  description = "DynamoDB table name used for Terraform/OpenTofu state locking."
+  description = "Optional DynamoDB table name used for Terraform/OpenTofu state locking."
   type        = string
+  default     = null
+  nullable    = true
 
   validation {
-    condition     = length(trimspace(var.locks_table)) > 0
-    error_message = "locks_table must be a non-empty DynamoDB table name."
+    condition     = var.locks_table == null || length(trimspace(var.locks_table)) > 0
+    error_message = "locks_table must be null or a non-empty DynamoDB table name."
   }
 }
 
 variable "aws_region" {
-  description = "AWS region that hosts the DynamoDB lock table."
+  description = "Optional AWS region override for the DynamoDB lock table; defaults to the configured AWS provider region."
   type        = string
+  default     = null
+  nullable    = true
 
   validation {
-    condition     = length(trimspace(var.aws_region)) > 0
-    error_message = "aws_region must be a non-empty AWS region name."
+    condition     = var.aws_region == null || length(trimspace(var.aws_region)) > 0
+    error_message = "aws_region must be null or a non-empty AWS region name."
   }
 }
 
@@ -45,7 +49,7 @@ variable "tags" {
 }
 
 variable "github_repository" {
-  description = "Optional GitHub repository in owner/repo format; when set, writes TF_STATE_BUCKET and TF_STATE_TABLE GitHub Actions secrets."
+  description = "Optional GitHub repository in owner/repo format; when set, writes TF_STATE_BUCKET and, when locks_table is set, TF_STATE_TABLE GitHub Actions secrets."
   type        = string
   default     = null
   nullable    = true
