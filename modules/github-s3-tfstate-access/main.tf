@@ -1,25 +1,30 @@
 locals {
-  tags                = merge({ managed_by = "lambdacron" }, var.tags)
-  tf_state_bucket_arn = "arn:aws:s3:::${var.state_bucket}"
-  tf_state_object_arn = "${local.tf_state_bucket_arn}/*"
-  lock_table_region   = coalesce(var.aws_region, data.aws_region.current.name)
-  github_repository_name = (
-    var.github_repository == null
-    ? null
-    : split("/", var.github_repository)[1]
-  )
-  backend_actions_secrets = (
-    local.github_repository_name == null
-    ? {}
-    : merge(
-      { TF_STATE_BUCKET = var.state_bucket },
-      var.locks_table == null ? {} : { TF_STATE_TABLE = var.locks_table },
-    )
+  tags                    = merge({ managed_by = "lambdacron" }, var.tags)
+  tf_state_bucket_arn     = "arn:aws:s3:::${var.state_bucket}"
+  tf_state_object_arn     = "${local.tf_state_bucket_arn}/*"
+  lock_table_region       = coalesce(var.aws_region, data.aws_region.current.name)
+  github_repository_parts = split("/", var.github_repository)
+  github_repository_owner = local.github_repository_parts[0]
+  github_repository_name  = local.github_repository_parts[1]
+  backend_actions_secrets = merge(
+    { TF_STATE_BUCKET = var.state_bucket },
+    var.locks_table == null ? {} : { TF_STATE_TABLE = var.locks_table },
   )
 }
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
+
+data "github_repository" "provider_context" {
+  name = local.github_repository_name
+}
+
+check "github_provider_owner_matches_repository_owner" {
+  assert {
+    condition     = data.github_repository.provider_context.full_name == var.github_repository
+    error_message = "GitHub provider owner mismatch: expected \"${var.github_repository}\" from repository name \"${local.github_repository_name}\", but provider resolved \"${data.github_repository.provider_context.full_name}\". Configure provider \"github\" with owner = \"${local.github_repository_owner}\"."
+  }
+}
 
 data "aws_iam_policy_document" "terraform_backend_access" {
   statement {

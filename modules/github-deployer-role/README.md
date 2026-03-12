@@ -27,6 +27,10 @@ module "github_deployer_role" {
     "lambda-image-build",
   ]
 
+  allowed_resource_name_prefixes = [
+    "lambdacron",
+  ]
+
   tags = {
     environment = "prod"
   }
@@ -56,7 +60,14 @@ module "github_deployer_role" {
 - `github_job_workflow_refs` (list(string)): Optional allowed OIDC `job_workflow_ref` patterns for workflow-level restriction.
 - `permission_sets` (set(string)): Permission sets to attach.
 - `additional_policy_arns` (list(string)): Extra managed policies to attach.
+- `allowed_resource_name_prefixes` (set(string)): Allowed name prefixes for deployer-managed resources; defaults to `["lambdacron"]`.
 - `tags` (map(string)): Resource tags.
+
+## Scoping Behavior
+
+- Permission-set policies are scoped to the current AWS account and to resources whose names start with values in `allowed_resource_name_prefixes`.
+- `iam:PassRole` is restricted to scoped IAM role ARNs and requires `iam:PassedToService = lambda.amazonaws.com`.
+- A small set of actions remains wildcard-scoped where AWS APIs do not support resource-level scoping (for example some create/authentication APIs such as `sns:CreateTopic`, `sqs:CreateQueue`, `ecr:GetAuthorizationToken`, and event source mapping APIs).
 
 ## Outputs
 

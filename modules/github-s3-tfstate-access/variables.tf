@@ -49,13 +49,11 @@ variable "tags" {
 }
 
 variable "github_repository" {
-  description = "Optional GitHub repository in owner/repo format; when set, writes TF_STATE_BUCKET and, when locks_table is set, TF_STATE_TABLE GitHub Actions secrets."
+  description = "GitHub repository in owner/repo format. This module always manages TF_STATE_BUCKET and, when locks_table is set, TF_STATE_TABLE GitHub Actions secrets for that repository."
   type        = string
-  default     = null
-  nullable    = true
 
   validation {
-    condition     = var.github_repository == null || can(regex("^[^/]+/[^/]+$", var.github_repository))
-    error_message = "github_repository must be null or in owner/repo format."
+    condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
+    error_message = "github_repository must be in owner/repo format."
   }
 }

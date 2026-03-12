@@ -24,6 +24,6 @@ output "github_actions_secret_names" {
 }
 
 output "github_actions_repository_name" {
-  description = "GitHub repository name receiving managed backend secrets, or null when github_repository is not set."
+  description = "GitHub repository name receiving managed backend secrets."
   value       = local.github_repository_name
 }

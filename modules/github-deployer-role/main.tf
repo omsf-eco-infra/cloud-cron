@@ -1,39 +1,104 @@
+data "aws_caller_identity" "current" {}
+
 locals {
   tags = merge({ managed_by = "lambdacron" }, var.tags)
 
+  account_id        = data.aws_caller_identity.current.account_id
+  resource_prefixes = [for prefix in var.allowed_resource_name_prefixes : trimspace(prefix)]
+
+  iam_role_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:iam::${local.account_id}:role/${prefix}*"
+  ]
+  iam_policy_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:iam::${local.account_id}:policy/${prefix}*"
+  ]
+  lambda_function_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:lambda:*:${local.account_id}:function:${prefix}*"
+  ]
+  eventbridge_rule_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:events:*:${local.account_id}:rule/${prefix}*"
+  ]
+  sns_topic_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:sns:*:${local.account_id}:${prefix}*"
+  ]
+  sns_subscription_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:sns:*:${local.account_id}:${prefix}*"
+  ]
+  sqs_queue_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:sqs:*:${local.account_id}:${prefix}*"
+  ]
+  ecr_private_repository_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:ecr:*:${local.account_id}:repository/${prefix}*"
+  ]
+  ecr_public_repository_arns = [
+    for prefix in local.resource_prefixes : "arn:aws:ecr-public::${local.account_id}:repository/${prefix}*"
+  ]
+
   lambda_iam_statements = [
     {
-      sid = "IamRoleAndPolicyManagement"
+      sid = "IamRoleManagement"
       actions = [
-        "iam:AttachRolePolicy",
-        "iam:CreatePolicy",
-        "iam:CreatePolicyVersion",
         "iam:CreateRole",
-        "iam:DeletePolicy",
-        "iam:DeletePolicyVersion",
         "iam:DeleteRole",
-        "iam:DetachRolePolicy",
-        "iam:GetPolicy",
-        "iam:GetPolicyVersion",
         "iam:GetRole",
-        "iam:ListAttachedRolePolicies",
         "iam:ListRolePolicies",
-        "iam:ListPolicyVersions",
         "iam:ListRoleTags",
-        "iam:TagPolicy",
         "iam:TagRole",
-        "iam:UntagPolicy",
         "iam:UntagRole",
         "iam:UpdateAssumeRolePolicy",
       ]
-      resources = ["*"]
+      resources = local.iam_role_arns
+    },
+    {
+      sid = "IamManagedPolicyManagement"
+      actions = [
+        "iam:CreatePolicy",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:TagPolicy",
+        "iam:UntagPolicy",
+      ]
+      resources = local.iam_policy_arns
+    },
+    {
+      sid = "IamRoleManagedPolicyAttachment"
+      actions = [
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+      ]
+      resources = local.iam_role_arns
+      conditions = [
+        {
+          test     = "ArnLike"
+          variable = "iam:PolicyARN"
+          values   = local.iam_policy_arns
+        },
+      ]
+    },
+    {
+      sid = "IamRoleAttachedPolicyRead"
+      actions = [
+        "iam:ListAttachedRolePolicies",
+      ]
+      resources = local.iam_role_arns
     },
     {
       sid = "IamPassRoleToLambda"
       actions = [
         "iam:PassRole",
       ]
-      resources = ["arn:aws:iam::*:role/*"]
+      resources = local.iam_role_arns
+      conditions = [
+        {
+          test     = "StringEquals"
+          variable = "iam:PassedToService"
+          values   = ["lambda.amazonaws.com"]
+        },
+      ]
     },
     {
       sid = "LambdaFunctionManagement"
@@ -56,7 +121,7 @@ locals {
         "lambda:UpdateFunctionConfiguration",
         "lambda:UpdateFunctionUrlConfig",
       ]
-      resources = ["*"]
+      resources = local.lambda_function_arns
     },
   ]
 
@@ -74,7 +139,7 @@ locals {
         "events:TagResource",
         "events:UntagResource",
       ]
-      resources = ["*"]
+      resources = local.eventbridge_rule_arns
     },
   ]
 
@@ -85,7 +150,7 @@ locals {
         "ecr:BatchGetImage",
         "ecr:GetDownloadUrlForLayer",
       ]
-      resources = ["*"]
+      resources = local.ecr_private_repository_arns
     },
     {
       sid = "EcrRepositoryPolicyReadWriteForLambdaCreateUpdate"
@@ -93,15 +158,21 @@ locals {
         "ecr:GetRepositoryPolicy",
         "ecr:SetRepositoryPolicy",
       ]
-      resources = ["*"]
+      resources = local.ecr_private_repository_arns
     },
   ]
 
   root_sns_topic_statements = [
     {
-      sid = "SnsTopicManagement"
+      sid = "SnsTopicCreate"
       actions = [
         "sns:CreateTopic",
+      ]
+      resources = ["*"]
+    },
+    {
+      sid = "SnsTopicManagement"
+      actions = [
         "sns:DeleteTopic",
         "sns:GetTopicAttributes",
         "sns:ListTagsForResource",
@@ -109,15 +180,21 @@ locals {
         "sns:TagResource",
         "sns:UntagResource",
       ]
-      resources = ["*"]
+      resources = local.sns_topic_arns
     },
   ]
 
   notification_plumbing_statements = [
     {
-      sid = "SqsQueueManagement"
+      sid = "SqsQueueCreate"
       actions = [
         "sqs:CreateQueue",
+      ]
+      resources = ["*"]
+    },
+    {
+      sid = "SqsQueueManagement"
+      actions = [
         "sqs:DeleteQueue",
         "sqs:GetQueueAttributes",
         "sqs:GetQueueUrl",
@@ -126,17 +203,23 @@ locals {
         "sqs:TagQueue",
         "sqs:UntagQueue",
       ]
-      resources = ["*"]
+      resources = local.sqs_queue_arns
+    },
+    {
+      sid = "SnsSubscriptionCreate"
+      actions = [
+        "sns:Subscribe",
+      ]
+      resources = local.sns_topic_arns
     },
     {
       sid = "SnsSubscriptionManagement"
       actions = [
         "sns:GetSubscriptionAttributes",
         "sns:SetSubscriptionAttributes",
-        "sns:Subscribe",
         "sns:Unsubscribe",
       ]
-      resources = ["*"]
+      resources = local.sns_subscription_arns
     },
     {
       sid = "LambdaEventSourceMappingManagement"
@@ -153,9 +236,15 @@ locals {
 
   ecr_private_repository_management_statements = [
     {
-      sid = "EcrPrivateRepositoryManagement"
+      sid = "EcrPrivateRepositoryCreate"
       actions = [
         "ecr:CreateRepository",
+      ]
+      resources = ["*"]
+    },
+    {
+      sid = "EcrPrivateRepositoryManagement"
+      actions = [
         "ecr:DeleteRepository",
         "ecr:DescribeImages",
         "ecr:DescribeRepositories",
@@ -165,24 +254,30 @@ locals {
         "ecr:TagResource",
         "ecr:UntagResource",
       ]
-      resources = ["*"]
+      resources = local.ecr_private_repository_arns
     },
   ]
 
   ecr_private_push_statements = [
+    {
+      sid = "EcrPrivateAuthorization"
+      actions = [
+        "ecr:GetAuthorizationToken",
+      ]
+      resources = ["*"]
+    },
     {
       sid = "EcrPrivatePushPull"
       actions = [
         "ecr:BatchCheckLayerAvailability",
         "ecr:BatchGetImage",
         "ecr:CompleteLayerUpload",
-        "ecr:GetAuthorizationToken",
         "ecr:GetDownloadUrlForLayer",
         "ecr:InitiateLayerUpload",
         "ecr:PutImage",
         "ecr:UploadLayerPart",
       ]
-      resources = ["*"]
+      resources = local.ecr_private_repository_arns
     },
   ]
 
@@ -194,7 +289,7 @@ locals {
         "ecr:GetRepositoryPolicy",
         "ecr:SetRepositoryPolicy",
       ]
-      resources = ["*"]
+      resources = local.ecr_private_repository_arns
     },
   ]
 
@@ -217,15 +312,21 @@ locals {
         "ecr-public:DescribeImages",
         "ecr-public:GetDownloadUrlForLayer",
       ]
-      resources = ["*"]
+      resources = local.ecr_public_repository_arns
     },
   ]
 
   ecr_public_repository_management_statements = [
     {
-      sid = "EcrPublicRepositoryManagement"
+      sid = "EcrPublicRepositoryCreate"
       actions = [
         "ecr-public:CreateRepository",
+      ]
+      resources = ["*"]
+    },
+    {
+      sid = "EcrPublicRepositoryManagement"
+      actions = [
         "ecr-public:DeleteRepository",
         "ecr-public:DescribeRepositories",
         "ecr-public:GetRepositoryCatalogData",
@@ -233,7 +334,7 @@ locals {
         "ecr-public:TagResource",
         "ecr-public:UntagResource",
       ]
-      resources = ["*"]
+      resources = local.ecr_public_repository_arns
     },
   ]
 
@@ -247,7 +348,7 @@ locals {
         "ecr-public:PutImage",
         "ecr-public:UploadLayerPart",
       ]
-      resources = ["*"]
+      resources = local.ecr_public_repository_arns
     },
   ]
 
@@ -383,6 +484,16 @@ data "aws_iam_policy_document" "permission_set" {
       effect    = "Allow"
       actions   = statement.value.actions
       resources = statement.value.resources
+
+      dynamic "condition" {
+        for_each = try(statement.value.conditions, [])
+
+        content {
+          test     = condition.value.test
+          variable = condition.value.variable
+          values   = condition.value.values
+        }
+      }
     }
   }
 }

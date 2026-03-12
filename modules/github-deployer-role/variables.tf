@@ -63,6 +63,17 @@ variable "additional_policy_arns" {
   default     = []
 }
 
+variable "allowed_resource_name_prefixes" {
+  description = "Allowed resource name prefixes for deployer-managed IAM roles/policies, Lambda functions, EventBridge rules, SNS topics, SQS queues, and ECR repositories."
+  type        = set(string)
+  default     = ["lambdacron"]
+
+  validation {
+    condition     = length(var.allowed_resource_name_prefixes) > 0 && alltrue([for prefix in var.allowed_resource_name_prefixes : length(trimspace(prefix)) > 0])
+    error_message = "allowed_resource_name_prefixes must contain at least one non-empty prefix."
+  }
+}
+
 variable "tags" {
   description = "Tags to apply to all created resources."
   type        = map(string)
