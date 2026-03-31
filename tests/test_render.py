@@ -170,7 +170,10 @@ def test_render_main_rejects_task_output_missing_result_type(tmp_path, capsys):
 
     captured = capsys.readouterr()
     assert code == 1
-    assert "Result payload for type 'success' must be a JSON object" in captured.err
+    assert (
+        "Result payload for type 'success' must be a JSON object, got NoneType"
+        in captured.err
+    )
 
 
 def test_render_main_rejects_non_object_result_payload(tmp_path, capsys):
@@ -183,4 +186,7 @@ def test_render_main_rejects_non_object_result_payload(tmp_path, capsys):
 
     captured = capsys.readouterr()
     assert code == 1
-    assert "Result payload for type 'success' must be a JSON object" in captured.err
+    assert (
+        "Result payload for type 'success' must be a JSON object, got str"
+        in captured.err
+    )

@@ -95,6 +95,11 @@ def extract_result_payload(payload_json: str, *, result_type: str) -> str:
     if not isinstance(payload, dict):
         raise ValueError("Task output must be a JSON object keyed by result type")
     selected = payload.get(result_type)
+    if not isinstance(selected, Mapping):
+        raise ValueError(
+            f"Result payload for type '{result_type}' must be a JSON object, "
+            f"got {type(selected).__name__}"
+        )
     payload_for_publish = build_result_message_payload(
         result_type=result_type, message=selected
     )
