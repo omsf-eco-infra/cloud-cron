@@ -30,7 +30,9 @@ def test_render_main_renders_with_long_flags(tmp_path, capsys):
     assert captured.err == ""
 
 
-def test_render_main_short_flags_preserve_payload_result_type(tmp_path, capsys):
+def test_render_main_short_flags_reject_mismatched_payload_result_type(
+    tmp_path, capsys
+):
     template_path = tmp_path / "template.jinja2"
     output_path = tmp_path / "output.json"
     template_path.write_text("{{ result_type }}", encoding="utf-8")
@@ -42,9 +44,11 @@ def test_render_main_short_flags_preserve_payload_result_type(tmp_path, capsys):
     code = render.main(["-t", str(template_path), "-r", "attribute", str(output_path)])
 
     captured = capsys.readouterr()
-    assert code == 0
-    assert captured.out == "payload\n"
-    assert captured.err == ""
+    assert code == 1
+    assert (
+        "Result payload for type 'attribute' has conflicting result_type 'payload'"
+        in captured.err
+    )
 
 
 def test_render_main_rejects_non_object_json(tmp_path, capsys):
@@ -110,6 +114,23 @@ def test_render_main_reads_from_stdin_with_dash(tmp_path, capsys, monkeypatch):
     )
 
     code = render.main(["-t", str(template_path), "-r", "success", "-"])
+
+    captured = capsys.readouterr()
+    assert code == 0
+    assert captured.out == "success\n"
+    assert captured.err == ""
+
+
+def test_render_main_preserves_matching_payload_result_type(tmp_path, capsys):
+    template_path = tmp_path / "template.jinja2"
+    output_path = tmp_path / "output.json"
+    template_path.write_text("{{ result_type }}", encoding="utf-8")
+    output_path.write_text(
+        json.dumps({"success": {"status": "ok", "result_type": "success"}}),
+        encoding="utf-8",
+    )
+
+    code = render.main(["-t", str(template_path), "-r", "success", str(output_path)])
 
     captured = capsys.readouterr()
     assert code == 0
